@@ -1,0 +1,13 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+:root {
+  --color-primary: #0857C3; --color-primary-hover: #0649A5; --color-primary-active: #043D8A;
+  --color-primary-light: #E8F0FC; --color-primary-soft: #D7E7FC; --color-dark-navy: #102347;
+  --color-background: #F4F7FC; --color-surface: #FFFFFF; --color-border: #DCE5F2;
+  --color-text-primary: #172B4D; --color-text-secondary: #64748B;
+  --color-success: #16A34A; --color-success-bg: #DCFCE7; --color-danger: #DC2626; --color-danger-bg: #FEE2E2;
+  --color-warning: #D97706; --color-warning-bg: #FEF3C7; --color-neutral: #94A3B8; --color-neutral-bg: #F1F5F9;
+}
+body { background: var(--color-background); color: var(--color-text-primary); font-family: 'Space Grotesk', system-ui, sans-serif; }
+body { background-image: radial-gradient(55% 45% at 5% 12%, #BFD9FB, transparent), radial-gradient(45% 45% at 100% 55%, #E6DDFB, transparent), radial-gradient(55% 40% at 90% 100%, #BDEBFA, transparent); background-attachment: fixed; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

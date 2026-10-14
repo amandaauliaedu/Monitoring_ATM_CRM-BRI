@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monitoring ATM &amp; CRM Onsite RO Surabaya</title>
+  <style>
+    :root { --primary:#00529b; --primary-dark:#003b70; --primary-light:#eaf3fc; --bg:#f3f6fb; --border:#dce3ec; --text:#1f2937; --muted:#64748b; --danger:#dc2626; }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; }
+    .topbar { height:7px; background:#f58220; }
+    .hero { background:linear-gradient(135deg,#004481,#0874c9); color:#fff; padding:32px 20px 64px; }
+    .hero-inner { max-width:850px; margin:0 auto; }
+    .brand { display:flex; align-items:center; gap:10px; margin-bottom:24px; }
+    .brand-mark { width:42px; height:42px; display:flex; align-items:center; justify-content:center; background:#fff; color:var(--primary); border-radius:10px; font-size:19px; font-weight:800; letter-spacing:-1px; }
+    .brand-text { font-size:12px; font-weight:700; letter-spacing:1.1px; }
+    .hero h1 { margin:0 0 10px; font-size:clamp(24px,4vw,34px); line-height:1.25; }
+    .hero p { margin:0; max-width:650px; color:#e2efff; line-height:1.7; }
+    .page { width:min(850px,calc(100% - 32px)); margin:-36px auto 40px; position:relative; }
+    .form-card { background:#fff; border:1px solid #e7edf4; border-radius:14px; overflow:hidden; box-shadow:0 8px 30px rgba(15,45,75,.09); }
+    .form-heading { padding:22px 26px; border-bottom:1px solid #e9eef5; }
+    .form-heading h2 { margin:0 0 5px; font-size:19px; color:#12304f; }
+    .form-heading p { margin:0; color:var(--muted); font-size:13px; }
+    .required-note { color:var(--danger); font-size:12px; margin-top:10px; }
+    form { padding:24px 26px 28px; }
+    .section { margin-bottom:28px; }
+    .section-title { display:flex; align-items:center; gap:10px; margin:0 0 18px; padding-bottom:11px; border-bottom:1px solid #e8edf4; font-size:15px; color:#123d67; }
+    .section-number { width:27px; height:27px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; border-radius:8px; background:var(--primary-light); color:var(--primary); font-size:12px; font-weight:800; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 20px; }
+    .field { min-width:0; }
+    .field.full { grid-column:1 / -1; }
+    label, .field-label { display:block; margin-bottom:7px; font-weight:600; color:#26394d; font-size:13px; }
+    .required { color:var(--danger); margin-left:2px; }
+    input, select, textarea { display:block; width:100%; min-height:43px; border:1px solid #cfd8e3; border-radius:8px; background:#fff; color:#243447; padding:10px 12px; font:inherit; outline:none; transition:border-color .2s, box-shadow .2s; }
+    input:focus, select:focus, textarea:focus { border-color:#2879c7; box-shadow:0 0 0 3px rgba(40,121,199,.12); }
+    input[readonly], select:disabled { background:#f1f5f9; color:#526579; cursor:default; }
+    input[type="checkbox"], input[type="radio"] { width:17px; height:17px; min-height:17px; margin:0; accent-color:var(--primary); flex-shrink:0; }
+    input[type="file"] { min-height:auto; padding:10px; background:#fafcff; }
+    .helper { margin-top:6px; color:var(--muted); font-size:12px; }
+    .choice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .choice { display:flex; align-items:flex-start; gap:10px; min-height:44px; padding:12px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; font-weight:400; margin:0; transition:border-color .2s, background .2s; }
+    .choice:hover { border-color:#80b2df; background:#f7fbff; }
+    .choice:has(input:checked) { border-color:#4a90d0; background:#f0f7ff; }
+    .choice.status { align-items:center; font-weight:700; }
+    .choice.status.normal:has(input:checked) { border-color:#16a34a; background:#f0fdf4; color:#166534; }
+    .choice.status.problem:has(input:checked) { border-color:#dc2626; background:#fef2f2; color:#991b1b; }
+    .stack { margin-top:16px; }
+    .photo-preview { display:none; margin-top:12px; max-width:100%; max-height:250px; object-fit:contain; border:1px solid var(--border); border-radius:8px; background:#f8fafc; }
+    .notice { display:none; padding:13px 15px; margin-bottom:20px; border-radius:8px; font-size:13px; overflow-wrap:anywhere; }
+    .notice.error { display:block; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+    .notice.success { display:block; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
+    .actions { display:flex; justify-content:flex-end; gap:10px; padding-top:20px; border-top:1px solid #e8edf4; }
+    button { min-height:44px; padding:11px 20px; border:0; border-radius:8px; font:inherit; font-weight:700; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .btn-secondary { color:#334155; background:#e9eef5; }
+    .btn-secondary:hover { background:#dce5ef; }
+    .btn-primary { min-width:150px; color:#fff; background:var(--primary); }
+    .btn-primary:hover:not(:disabled) { background:var(--primary-dark); }
+    .footer { text-align:center; color:var(--muted); font-size:12px; padding:0 15px 25px; line-height:1.7; }
+    .loading { display:inline-block; width:14px; height:14px; margin-right:7px; vertical-align:-2px; border:2px solid rgba(255,255,255,.45); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+    @media (max-width:600px) {
+      .hero { padding:25px 18px 58px; }
+      .page { width:calc(100% - 22px); margin-top:-30px; }
+      .form-heading { padding:19px; } form { padding:20px 18px 22px; }
+      .grid, .choice-grid { grid-template-columns:1fr; gap:15px; }
+      .choice-grid { gap:10px; }
+      .actions { flex-direction:column-reverse; } .actions button { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar"></div>
+  <header class="hero"><div class="hero-inner">
+    <div class="brand"><div class="brand-mark">BRI</div><div class="brand-text">OPERATION, SERVICE &amp; E-CHANNEL</div></div>
+    <h1>Monitoring ATM &amp; CRM Onsite</h1>
+    <p>Regional Office Surabaya — Formulir pencatatan hasil monitoring dan kendala mesin ATM/CRM untuk mendukung pemantauan operasional serta tindak lanjut perbaikan.</p>
+  </div></header>
+
+  <main class="page">
+    <div class="form-card">
+      <div class="form-heading">
+        <h2>Form Monitoring Mesin</h2>
+        <p>Silakan isi data monitoring sesuai kondisi aktual di lapangan.</p>
+        <div class="required-note">* Wajib diisi</div>
+      </div>
+
+      <form id="monitoringForm" novalidate>
+        <div id="notice" class="notice" role="status" aria-live="polite"></div>
+
+        <section class="section">
+          <h3 class="section-title"><span class="section-number">01</span>Informasi Monitoring</h3>
+          <div class="grid">
+            <div class="field"><label for="tanggal">Tanggal Monitoring <span class="required">*</span></label><input id="tanggal" type="date"></div>
+            <div class="field"><label for="jam">Jam Monitoring <span class="required">*</span></label><input id="jam" type="time"></div>
+            <div class="field full"><label for="namaPetugas">Nama Petugas <span class="required">*</span></label>
+              <input id="namaPetugas" type="text" maxlength="100" autocomplete="name" placeholder="Masukkan nama petugas monitoring"></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3 class="section-title"><span class="section-number">02</span>Lokasi Mesin</h3>
+          <div class="grid">
+            <div class="field"><label for="branch">Branch Office <span class="required">*</span></label>
+              <select id="branch" disabled><option value="">Memuat Branch Office...</option></select></div>
+            <div class="field"><label for="lokasi">Lokasi <span class="required">*</span></label>
+              <select id="lokasi" disabled><option value="">Pilih Branch Office terlebih dahulu</option></select></div>
+            <div class="field"><label for="tid">TID <span class="required">*</span></label>
+              <select id="tid" disabled><option value="">Pilih Lokasi terlebih dahulu</option></select>
+              <div class="helper">Tidak ada di daftar? Pilih opsi "TID tidak ada di daftar" lalu isi manual. TID baru otomatis tercatat di database.</div></div>
+            <div class="field"><label for="jenisUker">Jenis Uker</label><input id="jenisUker" type="text" readonly placeholder="Terisi otomatis dari Lokasi"></div>
+            <div class="field full" id="manualTidField" hidden><label for="manualTid">TID Baru <span class="required">*</span></label>
+              <input id="manualTid" type="text" maxlength="20" autocapitalize="characters" placeholder="Masukkan TID (huruf/angka)"></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3 class="section-title"><span class="section-number">03</span>Informasi Mesin</h3>
+          <div class="grid">
+            <div class="field"><label for="mesin">Mesin <span class="required">*</span></label>
+              <select id="mesin" disabled><option value="">Pilih TID terlebih dahulu</option></select>
+              <div class="helper" id="mesinHelper">Terisi otomatis dari TID yang dipilih.</div></div>
+            <div class="field"><label for="vendor">Vendor <span class="required">*</span></label>
+              <select id="vendor" disabled><option value="">Memuat vendor...</option></select></div>
+            <div class="field full" id="mesinManualField" hidden><label for="mesinManual">Jenis Mesin (manual) <span class="required">*</span></label>
+              <input id="mesinManual" type="text" maxlength="30" placeholder="Contoh: JALIN"></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h3 class="section-title"><span class="section-number">04</span>Status &amp; Kendala</h3>
+          <div class="field">
+            <div class="field-label">Status <span class="required">*</span></div>
+            <div class="choice-grid">
+              <label class="choice status normal"><input type="radio" name="status" value="Normal"><span>Normal</span></label>
+              <label class="choice status problem"><input type="radio" name="status" value="Problem"><span>Problem</span></label>
+            </div>
+          </div>
+
+          <div class="field stack" id="problemField" hidden>
+            <div class="field-label">Keterangan Problem <span class="required">*</span></div>
+            <div class="choice-grid" id="problemGrid"></div>
+            <div class="helper">Pilih minimal satu keterangan problem.</div>
+          </div>
+
+          <div class="field stack" id="detailField" hidden>
+            <label for="detailLainnya">Detail Kendala Lainnya <span class="required">*</span></label>
+            <textarea id="detailLainnya" rows="3" maxlength="500" placeholder="Jelaskan kendala yang ditemukan..."></textarea>
+          </div>
+
+          <div class="field stack">
+            <label for="foto">Foto Mesin</label>
+            <input id="foto" type="file" accept="image/*">
+            <div class="helper">Opsional. Format gambar (JPG, PNG, dll). Ukuran maksimal 5 MB.</div>
+            <img id="photoPreview" class="photo-preview" alt="Pratinjau foto mesin">
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="reset" class="btn-secondary">Reset Form</button>
+          <button type="submit" class="btn-primary" id="submitButton" disabled>Simpan Data</button>
+        </div>
+      </form>
+    </div>
+    <div class="footer">Monitoring ATM &amp; CRM Onsite · Operation, Service &amp; E-Channel<br>Regional Office Surabaya</div>
+  </main>
+
+  <script>
+    var MAX_PHOTO = 5 * 1024 * 1024;
+    var MANUAL = '__MANUAL__';
+    var OTHER = 'Lainnya';
+    var DB = [];
+    var isSaving = false;
+    var keepNotice = false;
+
+    function $(id) { return document.getElementById(id); }
+    var form = $('monitoringForm'), branch = $('branch'), lokasi = $('lokasi'), tid = $('tid'), jenisUker = $('jenisUker');
+    var mesin = $('mesin'), vendor = $('vendor'), foto = $('foto'), preview = $('photoPreview'), notice = $('notice'), submitBtn = $('submitButton');
+
+    /* ---------- util ---------- */
+    function jakartaNow() {
+      var p = {};
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        .formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+      return { date: p.year + '-' + p.month + '-' + p.day, time: p.hour + ':' + p.minute };
+    }
+    function setDefaultDateTime() { var n = jakartaNow(); $('tanggal').value = n.date; $('jam').value = n.time; }
+    function showNotice(msg, type) { notice.className = 'notice ' + type; notice.textContent = msg; notice.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    function clearNotice() { notice.className = 'notice'; notice.textContent = ''; }
+    function setLoading(on) { isSaving = on; submitBtn.disabled = on; submitBtn.innerHTML = on ? '<span class="loading"></span>Menyimpan...' : 'Simpan Data'; }
+    function fillSelect(sel, placeholder, items) {
+      sel.innerHTML = '';
+      var o = document.createElement('option'); o.value = ''; o.textContent = placeholder; sel.appendChild(o);
+      items.forEach(function (it) { var op = document.createElement('option'); op.value = it.value; op.textContent = it.label; sel.appendChild(op); });
+    }
+    function uniq(list) { return list.filter(function (v, i, a) { return a.indexOf(v) === i; }); }
+    function byText(a, b) { return String(a).localeCompare(String(b), 'id', { numeric: true }); }
+
+    /* ---------- data awal ---------- */
+    function init() {
+      setDefaultDateTime();
+      google.script.run
+        .withSuccessHandler(onData)
+        .withFailureHandler(function (e) {
+          fillSelect(branch, 'Gagal memuat data', []);
+          showNotice('Gagal memuat data: ' + (e && e.message ? e.message : e), 'error');
+        })
+        .getFormData();
+    }
+    function onData(res) {
+      DB = res.rows || [];
+      if (!DB.length) { fillSelect(branch, 'Data kosong', []); showNotice('Database_Monitoring kosong atau tidak terbaca.', 'error'); return; }
+      fillSelect(vendor, 'Pilih vendor', res.vendors.map(function (v) { return { value: v, label: v }; }));
+      vendor.disabled = false;
+      var grid = $('problemGrid'); grid.innerHTML = '';
+      res.problems.forEach(function (p) {
+        var l = document.createElement('label'); l.className = 'choice';
+        var i = document.createElement('input'); i.type = 'checkbox'; i.name = 'problems'; i.value = p;
+        i.addEventListener('change', updateDetail);
+        var s = document.createElement('span'); s.textContent = p;
+        l.appendChild(i); l.appendChild(s); grid.appendChild(l);
+      });
+      resetLocationChain();
+      submitBtn.disabled = false;
+    }
+
+    /* ---------- BO -> Lokasi -> TID -> Mesin ---------- */
+    function resetLocationChain() {
+      var bos = uniq(DB.map(function (r) { return r.branch; })).sort(byText);
+      fillSelect(branch, 'Pilih Branch Office', bos.map(function (b) { return { value: b, label: b }; }));
+      branch.disabled = false;
+      onBranch();
+    }
+    function onBranch() {
+      var b = branch.value;
+      var locs = uniq(DB.filter(function (r) { return r.branch === b; }).map(function (r) { return r.lokasi; })).sort(byText);
+      fillSelect(lokasi, b ? 'Pilih Lokasi' : 'Pilih Branch Office terlebih dahulu', locs.map(function (l) { return { value: l, label: l }; }));
+      lokasi.disabled = !b;
+      onLokasi();
+    }
+    function locRows() { return DB.filter(function (r) { return r.branch === branch.value && r.lokasi === lokasi.value; }); }
+    function onLokasi() {
+      var rows = lokasi.value ? locRows() : [];
+      jenisUker.value = rows.length ? rows[0].jenis : '';
+      var items = rows.slice().sort(function (a, b) { return byText(a.tipe, b.tipe) || byText(a.tid, b.tid); })
+        .map(function (r) { return { value: r.tid, label: r.tid + ' — ' + r.tipe }; });
+      if (lokasi.value) items.push({ value: MANUAL, label: '+ TID tidak ada di daftar (input manual)' });
+      fillSelect(tid, lokasi.value ? 'Pilih TID' : 'Pilih Lokasi terlebih dahulu', items);
+      tid.disabled = !lokasi.value;
+      onTid();
+    }
+    function setMesin(options, value, locked, placeholder, helper) {
+      fillSelect(mesin, placeholder, options.map(function (o) { return { value: o, label: o }; }));
+      mesin.value = value || ''; mesin.disabled = locked;
+      $('mesinHelper').textContent = helper;
+      onMesin();
+    }
+    function onTid() {
+      var v = tid.value, manual = v === MANUAL;
+      $('manualTidField').hidden = !manual;
+      if (!manual) $('manualTid').value = '';
+      if (!v) { setMesin([], '', true, 'Pilih TID terlebih dahulu', 'Terisi otomatis dari TID yang dipilih.'); return; }
+      if (manual) { setMesin(['ATM', 'CRM', OTHER], '', false, 'Pilih jenis mesin', 'Pilih ATM/CRM, atau "Lainnya" untuk mengisi manual.'); return; }
+      var row = locRows().filter(function (r) { return r.tid === v; })[0];
+      setMesin(row ? [row.tipe] : [], row ? row.tipe : '', true, 'Mesin', 'Terisi otomatis dari TID yang dipilih.');
+    }
+    function onMesin() {
+      var show = mesin.value === OTHER;
+      $('mesinManualField').hidden = !show;
+      if (!show) $('mesinManual').value = '';
+    }
+
+    /* ---------- status & problem ---------- */
+    function currentStatus() { var r = document.querySelector('input[name="status"]:checked'); return r ? r.value : ''; }
+    function checkedProblems() { return Array.prototype.map.call(document.querySelectorAll('input[name="problems"]:checked'), function (i) { return i.value; }); }
+    function onStatus() {
+      var problem = currentStatus() === 'Problem';
+      $('problemField').hidden = !problem;
+      if (!problem) document.querySelectorAll('input[name="problems"]').forEach(function (i) { i.checked = false; });
+      updateDetail();
+    }
+    function updateDetail() {
+      var show = currentStatus() === 'Problem' && checkedProblems().indexOf(OTHER) >= 0;
+      $('detailField').hidden = !show;
+      if (!show) $('detailLainnya').value = '';
+    }
+
+    /* ---------- foto ---------- */
+    function clearPreview() { preview.removeAttribute('src'); preview.style.display = 'none'; }
+    function onPhoto() {
+      clearNotice();
+      var f = foto.files && foto.files[0];
+      if (!f) { clearPreview(); return; }
+      if (!f.type || f.type.indexOf('image/') !== 0) { foto.value = ''; clearPreview(); showNotice('File yang dipilih harus berupa gambar.', 'error'); return; }
+      if (f.size > MAX_PHOTO) { foto.value = ''; clearPreview(); showNotice('Ukuran foto maksimal 5 MB.', 'error'); return; }
+      var r = new FileReader();
+      r.onload = function (e) { preview.src = e.target.result; preview.style.display = 'block'; };
+      r.readAsDataURL(f);
+    }
+    function readPhoto(f) {
+      return new Promise(function (resolve, reject) {
+        if (!f) { resolve(null); return; }
+        var r = new FileReader();
+        r.onload = function (e) { resolve({ name: f.name, mimeType: f.type, data: e.target.result }); };
+        r.onerror = function () { reject(new Error('Foto gagal dibaca. Silakan pilih ulang.')); };
+        r.readAsDataURL(f);
+      });
+    }
+
+    /* ---------- validasi & kirim ---------- */
+    function finalMesin() { return mesin.value === OTHER ? $('mesinManual').value.trim() : mesin.value; }
+    function validate() {
+      if (!$('tanggal').value) throw new Error('Tanggal monitoring wajib diisi.');
+      if (!$('jam').value) throw new Error('Jam monitoring wajib diisi.');
+      if (!$('namaPetugas').value.trim()) throw new Error('Nama Petugas wajib diisi.');
+      if (!branch.value) throw new Error('Silakan pilih Branch Office.');
+      if (!lokasi.value) throw new Error('Silakan pilih Lokasi.');
+      if (!tid.value) throw new Error('Silakan pilih TID.');
+      if (tid.value === MANUAL) {
+        if (!/^[A-Za-z0-9]{3,20}$/.test($('manualTid').value.trim())) throw new Error('TID baru wajib diisi (3-20 huruf/angka).');
+        if (!mesin.value) throw new Error('Silakan pilih jenis mesin.');
+        if (mesin.value === OTHER && !$('mesinManual').value.trim()) throw new Error('Isi jenis mesin secara manual.');
+      }
+      if (!vendor.value) throw new Error('Silakan pilih vendor.');
+      var st = currentStatus();
+      if (!st) throw new Error('Silakan pilih Status (Normal atau Problem).');
+      if (st === 'Problem') {
+        var ps = checkedProblems();
+        if (!ps.length) throw new Error('Pilih minimal satu Keterangan Problem.');
+        if (ps.indexOf(OTHER) >= 0 && !$('detailLainnya').value.trim()) throw new Error('Isi Detail Kendala Lainnya jika memilih Lainnya.');
+      }
+      var f = foto.files && foto.files[0];
+      if (f && (!f.type || f.type.indexOf('image/') !== 0)) throw new Error('File yang diunggah harus berupa gambar.');
+      if (f && f.size > MAX_PHOTO) throw new Error('Ukuran foto maksimal 5 MB.');
+    }
+    function buildPayload(fileObj) {
+      var isNew = tid.value === MANUAL;
+      return {
+        tanggal: $('tanggal').value, jam: $('jam').value, namaPetugas: $('namaPetugas').value.trim(),
+        branch: branch.value, lokasi: lokasi.value,
+        tidBaru: isNew, tid: isNew ? $('manualTid').value.trim() : tid.value,
+        mesin: finalMesin(), vendor: vendor.value, status: currentStatus(),
+        problems: currentStatus() === 'Problem' ? checkedProblems() : [],
+        detailLainnya: $('detailLainnya').value.trim(), fileObj: fileObj
+      };
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (isSaving) return;
+      clearNotice();
+      try { validate(); } catch (err) { showNotice(err.message, 'error'); return; }
+      setLoading(true);
+      readPhoto(foto.files && foto.files[0]).then(function (fileObj) {
+        google.script.run
+          .withSuccessHandler(function (res) {
+            setLoading(false);
+            if (res && res.success) {
+              keepNotice = true; form.reset();
+              showNotice(res.message || 'Data monitoring berhasil disimpan.', 'success');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              if (DB.length) google.script.run.withSuccessHandler(function (r) { DB = r.rows || DB; resetLocationChain(); }).getFormData();
+            } else {
+              showNotice((res && res.message) || 'Data gagal disimpan. Silakan coba kembali.', 'error');
+            }
+          })
+          .withFailureHandler(function (err) { setLoading(false); showNotice('Terjadi kesalahan saat menyimpan data: ' + (err && err.message ? err.message : err), 'error'); })
+          .saveData(buildPayload(fileObj));
+      }).catch(function (err) { setLoading(false); showNotice(err.message || 'Terjadi kesalahan saat memproses formulir.', 'error'); });
+    });
+
+    /* ---------- event ---------- */
+    branch.addEventListener('change', function () { clearNotice(); onBranch(); });
+    lokasi.addEventListener('change', function () { clearNotice(); onLokasi(); });
+    tid.addEventListener('change', function () { clearNotice(); onTid(); });
+    mesin.addEventListener('change', onMesin);
+    document.querySelectorAll('input[name="status"]').forEach(function (r) { r.addEventListener('change', onStatus); });
+    foto.addEventListener('change', onPhoto);
+    form.addEventListener('reset', function () {
+      setTimeout(function () {
+        if (!keepNotice) clearNotice();
+        keepNotice = false;
+        clearPreview(); setDefaultDateTime();
+        if (DB.length) resetLocationChain();
+        onStatus();
+      }, 0);
+    });
+
+    init();
+  </script>
+</body>
+</html>
