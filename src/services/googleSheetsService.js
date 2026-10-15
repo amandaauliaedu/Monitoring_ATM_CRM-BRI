@@ -1,6 +1,6 @@
 import { APP_CONFIG as A } from '../config/appConfig.js';
 import { parseCSV } from '../utils/csv.js';
-import { normalizeResponse } from '../utils/monitoringUtils.js';
+import { normalizeResponse, normalizeFollowUp } from '../utils/monitoringUtils.js';
 import { normalizeMaster } from '../utils/masterUtils.js';
 
 let seq = 0;
@@ -24,8 +24,28 @@ async function fetchRows(sheet, action, signal) {
 // Hanya hasil request terbaru yang dipakai (mencegah data lama menimpa data baru).
 export async function getAllData(signal) {
   const mine = ++seq;
-  const [resp, mast] = await Promise.all([fetchRows(A.responseSheet, 'responses', signal), fetchRows(A.masterSheet, 'master', signal)]);
+  const [resp, mast, tlRows] = await Promise.all([
+    fetchRows(A.responseSheet, 'responses', signal), fetchRows(A.masterSheet, 'master', signal),
+    // Sheet Tindak_Lanjut baru dibuat saat TL pertama disimpan; sebelum itu dianggap kosong.
+    fetchRows(A.followUpSheet, 'followups', signal).catch((e) => { if (e.name === 'AbortError') throw e; return []; })
+  ]);
+  const tl = tlRows.filter((r) => 'Timestamp Laporan' in r).map(normalizeFollowUp).filter(Boolean);
   const responses = resp.map(normalizeResponse).filter(Boolean)
     .sort((a, b) => (b.date + String(b.hour).padStart(2, '0')).localeCompare(a.date + String(a.hour).padStart(2, '0')) || Number(b.id.slice(1)) - Number(a.id.slice(1)));
-  return { stale: mine !== seq, responses, skipped: resp.length - responses.length, rowsRead: resp.length, master: normalizeMaster(mast) };
+  return { stale: mine !== seq, responses, skipped: resp.length - responses.length, rowsRead: resp.length, master: normalizeMaster(mast), tl };
+}
+
+// Menyimpan Tindak Lanjut lewat Apps Script Web App (doPost). Waktu TL ditentukan server (WIB).
+export async function submitFollowUp({ report, petugas, pin, fileObj }) {
+  if (!A.writeApiUrl) throw new Error('Penyimpanan TL belum dikonfigurasi (VITE_WRITE_API_URL kosong).');
+  const res = await fetch(A.writeApiUrl, {
+    method: 'POST', // tanpa header khusus agar menjadi "simple request" (tanpa preflight CORS)
+    body: JSON.stringify({ action: 'followUp', timestampLaporan: report.timestamp, tid: report.tid, tanggal: report.date,
+      jam: String(report.raw?.Jam ?? ''), petugas, pin: pin || '', fileObj })
+  });
+  let json;
+  try { json = await res.json(); } catch { throw new Error('Respons server tidak valid. Pastikan Web App dideploy dengan akses "Siapa saja".'); }
+  if (!json.success) throw new Error(json.message || 'TL gagal disimpan.');
+  const d = json.data;
+  return { key: `${d.timestampLaporan}|${d.tid}`, tid: d.tid, tanggalTL: d.tanggalTL, jamTL: d.jamTL, petugas: d.petugas, foto: d.foto };
 }

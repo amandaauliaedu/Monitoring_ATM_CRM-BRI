@@ -1,11 +1,11 @@
-import { groupBySlot, deriveSlotStatus, STATUS } from './monitoringUtils.js';
+import { groupBySlot, deriveSlotStatus, reportKey, STATUS } from './monitoringUtils.js';
 import { SLOT_COUNT } from './dateUtils.js';
 import { APP_CONFIG } from '../config/appConfig.js';
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'id', { numeric: true });
 
 // Branch Office -> Lokasi -> mesin (daftar mesin dari Database_Monitoring, ditambah TID yang hanya ada di laporan).
-export function buildTree(master, responses, date, now, emptyAsNormal = APP_CONFIG.emptyAsNormal) {
+export function buildTree(master, responses, date, now, emptyAsNormal = APP_CONFIG.emptyAsNormal, tlKeys = new Set()) {
   const grouped = groupBySlot(responses);
   const bos = new Map();
   const lok = (bo, l, type) => {
@@ -27,9 +27,13 @@ export function buildTree(master, responses, date, now, emptyAsNormal = APP_CONF
         const slots = Array.from({ length: SLOT_COUNT }, (_, hour) => {
           const reports = grouped.get(`${date}|${m.tid}|${hour}`) || [];
           const due = date < now.date || (date === now.date && hour <= now.hour);
-          let status = deriveSlotStatus(reports); let inferred = false;
+          // Problem yang sudah di-TL tidak lagi dihitung; slot hijau hanya jika tidak ada problem tersisa. Laporan asli tetap tersimpan.
+          const open = reports.filter((r) => !(r.status === STATUS.PROBLEM && tlKeys.has(reportKey(r))));
+          const closed = reports.length - open.length;
+          let status = closed && !open.length ? STATUS.NORMAL : deriveSlotStatus(open); let inferred = false;
+          const resolved = closed > 0 && status === STATUS.NORMAL;
           if (status === STATUS.EMPTY && emptyAsNormal && due) { status = STATUS.NORMAL; inferred = true; }
-          return { hour, status, reports, due, inferred };
+          return { hour, status, reports, due, inferred, resolved };
         });
         const count = (s) => slots.filter((x) => x.status === s).length;
         return { ...m, key: m.tid, slots, problem: count(STATUS.PROBLEM), normal: count(STATUS.NORMAL), verify: count(STATUS.VERIFY), empty: count(STATUS.EMPTY),

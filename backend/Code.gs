@@ -4,7 +4,7 @@
  * Uji: <WEB_APP_URL>?action=responses  |  ?action=master
  */
 const TZ = 'Asia/Jakarta';
-const SHEETS = { responses: 'Jawaban_Monitoring', master: 'Database_Monitoring' };
+const SHEETS = { responses: 'Jawaban_Monitoring', master: 'Database_Monitoring', followups: 'Tindak_Lanjut' };
 
 function doGet(e) {
   const props = PropertiesService.getScriptProperties();

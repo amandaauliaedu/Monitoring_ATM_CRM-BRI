@@ -27,6 +27,15 @@ Catatan keamanan: `access: ANYONE` membuat endpoint dapat dipanggil siapa pun ya
 Pemetaan ada di `src/config/columnMapping.js`; nama tab di `src/config/appConfig.js`.
 Form input (Apps Script) ada di `form-apps-script/` (Code.gs + Form.html), terpisah dari backend baca opsional di `backend/`.
 
+## Tindak Lanjut (TL)
+Di Monitoring Dashboard, klik kotak merah, lalu "Sudah di-TL": isi nama petugas, unggah foto (maks. 5 MB). Jam TL dicatat otomatis oleh server (WIB).
+- TL disimpan sebagai baris baru di sheet `Tindak_Lanjut` (dibuat otomatis saat TL pertama). Laporan asli di `Jawaban_Monitoring` tidak diubah.
+- Slot menjadi hijau jika semua laporan Problem di slot itu sudah di-TL. Data Analyst tetap menghitung laporan Problem aslinya (riwayat).
+- Foto TL disimpan di folder Drive `1IlWOb72vux7RoGdQUZRSPY1vx-ZIWYkf` (`CONFIG.TL_PHOTO_FOLDER_ID` di `form-apps-script/Code.gs`). Akun pemilik Apps Script harus punya akses Editor ke folder itu.
+- Aktifkan: tempel `form-apps-script/Code.gs` terbaru, **Deploy > Manage deployments > Edit > Version: New version**, akses "Siapa saja", lalu isi `VITE_WRITE_API_URL` (URL /exec) dan redeploy website.
+- PIN opsional: Script Properties `TL_PIN`. Jika diisi, petugas harus mengetik PIN itu di form TL (PIN tidak disimpan di kode website).
+- Keamanan: endpoint dengan akses "Siapa saja" dapat dipanggil siapa pun yang mengetahui URL-nya. Server memvalidasi laporan, mencegah TL ganda, dan membatasi tipe/ukuran foto, tetapi gunakan PIN bila perlu.
+
 ## Aturan status slot
 Kunci slot = tanggal + TID + jam mulai (WIB, dari kolom Tanggal & Jam, bukan Timestamp).
 Status "Normal" = hijau, "Problem" = merah, laporan bertentangan pada slot yang sama = kuning, tanpa laporan = abu-abu (belum diinput).

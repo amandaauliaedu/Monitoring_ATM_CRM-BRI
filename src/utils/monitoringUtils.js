@@ -16,6 +16,13 @@ export function splitProblems(v) {
 }
 // TID unik per mesin (dipilih dari Database_Monitoring oleh form).
 export const machineKey = (r) => String(r.tid ?? '').trim();
+// Kunci laporan untuk mencocokkan Tindak Lanjut: Timestamp laporan + TID.
+export const reportKey = (r) => `${String(r.timestamp ?? '').trim()}|${String(r.tid ?? '').trim()}`;
+export function normalizeFollowUp(t) {
+  const ts = String(t['Timestamp Laporan'] ?? '').trim(); const tid = String(t['TID'] ?? '').trim();
+  if (!ts || !tid) return null;
+  return { key: `${ts}|${tid}`, tid, tanggalTL: String(t['Tanggal TL'] ?? '').trim(), jamTL: String(t['Jam TL'] ?? '').trim(), petugas: String(t['Petugas TL'] ?? '').trim(), foto: String(t['Foto TL'] ?? '').trim() };
+}
 export const slotKey = (r) => `${r.date}|${machineKey(r)}|${r.hour}`;
 
 // Baris mentah -> laporan bernorma. null jika tanggal/jam/TID tidak valid.

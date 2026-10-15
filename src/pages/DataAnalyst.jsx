@@ -49,7 +49,7 @@ export default function DataAnalyst({ data }) {
       {loading ? <p className="text-mute">Memuat data…</p> : (<>
         <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi label="Total laporan" value={a.total} /><Kpi label="Mesin unik dilaporkan" value={a.uniqueMachines} />
-          <Kpi label="Mesin pernah bermasalah" value={a.problemMachines} tone="text-bad" hint="bukan jumlah laporan" /><Kpi label="Laporan normal" value={a.normalReports} tone="text-ok" />
+          <Kpi label="Mesin pernah bermasalah" value={a.problemReports} tone="text-bad" hint={`berdasarkan jumlah laporan • ${a.problemMachines} mesin unik`} /><Kpi label="Laporan normal" value={a.normalReports} tone="text-ok" />
         </div>
         <Card title="Key Insights" className="mb-4">{insights.length ? <ul className="list-disc space-y-1 pl-5 text-sm">{insights.map((t) => <li key={t}>{t}</li>)}</ul> : <Empty>Data belum cukup untuk membuat insight (minimal 3 laporan gangguan).</Empty>}
           <p className="mt-2 text-xs text-mute">Insight hanya meringkas hitungan dari data terfilter, bukan menyimpulkan penyebab kerusakan.</p></Card>
@@ -58,7 +58,7 @@ export default function DataAnalyst({ data }) {
           <Chart title="ATM vs CRM" data={a.byType}><PieChart><Pie data={a.byType} dataKey="value" nameKey="name" outerRadius={85} label>{a.byType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip /><Legend /></PieChart></Chart>
           <Chart title="Laporan gangguan per jam" data={a.byHour}><BarChart data={a.byHour}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" tick={ax} label={{ value: 'Jam mulai slot', position: 'insideBottom', offset: -2, fontSize: 11 }} /><YAxis allowDecimals={false} tick={ax} /><Tooltip /><Bar dataKey="value" name="Laporan" fill="#0857C3" radius={[4, 4, 0, 0]} /></BarChart></Chart>
           <HBar title="Gangguan per Branch Office" data={a.byBO} /><HBar title="Gangguan per Lokasi" data={a.byLokasi} />
-          <HBar title="Distribusi jenis kendala" data={a.byProblem} /><HBar title="Ranking mesin" data={a.byMachine} />
+          <HBar title="Distribusi jenis kendala" data={a.byProblem} />
         </div></>)}
     </PageShell>
   );

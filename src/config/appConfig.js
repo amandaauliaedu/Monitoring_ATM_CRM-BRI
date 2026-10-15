@@ -3,9 +3,12 @@ export const APP_CONFIG = {
   spreadsheetId: import.meta.env.VITE_SHEET_ID || '1MYK7y45S18uRTXxRYPkHTlXMQjgw3sOMen85GZ1B0k8',
   responseSheet: 'Jawaban_Monitoring',
   masterSheet: 'Database_Monitoring',
+  followUpSheet: 'Tindak_Lanjut',
   // Mode 2 (opsional): jika diisi, data diambil lewat Apps Script Web App.
   apiUrl: import.meta.env.VITE_API_URL || '',
   apiToken: import.meta.env.VITE_API_TOKEN || '',
+  // URL Web App Apps Script (hasil Deploy) untuk menyimpan Tindak Lanjut. Kosong = fitur TL dinonaktifkan.
+  writeApiUrl: import.meta.env.VITE_WRITE_API_URL || '',
   timezone: 'Asia/Jakarta',
   pollIntervalMs: 45000,
   // false = slot tanpa laporan berstatus "Belum diinput" (abu-abu). true = dianggap normal (hijau) setelah jam lewat.

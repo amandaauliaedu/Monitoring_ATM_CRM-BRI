@@ -1,27 +1,10 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClipboardList, Building2, AlertTriangle, ShieldAlert, Download, ArrowUpRight, Copyright } from 'lucide-react';
 import Logo from '../components/Logo.jsx';
-import { Card, Kpi, Empty, ErrorBox, field } from '../components/ui.jsx';
-import { countBy } from '../utils/analyticsUtils.js';
-import { nowInJakarta } from '../utils/dateUtils.js';
+import { Kpi, ErrorBox } from '../components/ui.jsx';
 import { machineKey, STATUS } from '../utils/monitoringUtils.js';
 
-const dmy = (d) => `${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-function Top({ title, rows, pick, label }) {
-  const today = nowInJakarta().date;
-  const [scope, setScope] = useState('today');
-  const list = countBy(rows.filter((r) => r.status === STATUS.PROBLEM && pick(r) && (scope === 'all' || r.date === today)), label).slice(0, 5);
-  const max = list[0]?.value || 1;
-  return (
-    <Card title={title} right={<select className={`${field} text-xs`} value={scope} onChange={(e) => setScope(e.target.value)} aria-label={`Periode ${title}`}><option value="today">Hari ini ({dmy(today)})</option><option value="all">Semua data</option></select>}>
-      {list.length === 0 ? <Empty /> : <ol className="space-y-3">{list.map((x) => (
-        <li key={x.name} className="text-sm"><div className="flex justify-between gap-2"><span className="truncate">{x.name}</span><b>{x.value}</b></div>
-          <div className="mt-1 h-1.5 rounded bg-primary-light"><div className="h-1.5 rounded bg-primary" style={{ width: `${(x.value / max) * 100}%` }} /></div></li>))}</ol>}
-    </Card>
-  );
-}
 export default function Home({ data, onDownload }) {
   const { responses, master, loading, error, refresh } = data;
   const prob = responses.filter((r) => r.status === STATUS.PROBLEM);
@@ -45,18 +28,13 @@ export default function Home({ data, onDownload }) {
       <ErrorBox error={error} onRetry={refresh} />
       <p className="font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-primary">Ringkasan cepat</p>
       <h2 className="mb-3 text-2xl font-bold text-navy">Status Monitoring Terkini</h2>
-      {loading ? <p className="text-mute">Memuat data…</p> : (<>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {loading ? <p className="text-mute">Memuat data…</p> : (
+        <div className="grid gap-3 pb-10 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi label="Total response" value={responses.length} icon={ClipboardList} hint="semua data" />
           <Kpi label="BO aktif (sudah melapor)" value={new Set(responses.map((r) => r.bo)).size} suffix={`/ ${boTotal}`} icon={Building2} />
           <Kpi label="Mesin bermasalah" value={new Set(prob.map(machineKey)).size} icon={AlertTriangle} tone="text-bad" hint={`${prob.length} laporan gangguan`} />
           <Kpi label="Lokasi terdampak" value={new Set(prob.map((r) => `${r.bo}|${r.lokasi}`)).size} suffix={`/ ${lokasiTotal}`} icon={ShieldAlert} />
-        </div>
-        <div className="mt-4 grid gap-3 pb-10 md:grid-cols-3">
-          <Top title="Top 5 Branch Office" rows={responses} pick={() => true} label={(r) => r.bo} />
-          <Top title="Top 5 KCP/KK" rows={responses} pick={(r) => ['KK', 'KCP'].includes(r.ukerType)} label={(r) => r.lokasi} />
-          <Top title="Top 5 Unit" rows={responses} pick={(r) => r.ukerType === 'UNIT'} label={(r) => r.lokasi} />
-        </div></>)}
+        </div>)}
     </motion.main>
   );
 }

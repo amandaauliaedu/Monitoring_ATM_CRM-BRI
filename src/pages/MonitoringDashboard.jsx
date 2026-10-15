@@ -5,10 +5,12 @@ import PageShell from '../components/PageShell.jsx';
 import { SlotPanel } from '../components/ReportPanel.jsx';
 import { Card, Kpi, Empty, ErrorBox, field } from '../components/ui.jsx';
 import { buildTree } from '../utils/treeUtils.js';
+import { submitFollowUp } from '../services/googleSheetsService.js';
+import { APP_CONFIG } from '../config/appConfig.js';
 import { nowInJakarta, SLOTS } from '../utils/dateUtils.js';
 
 const CELL = {
-  bermasalah: ['bg-bad text-white', '✕', 'Problem'], normal: ['bg-ok text-white', '✓', 'Normal'],
+  bermasalah: ['bg-bad text-white', '✕', 'Problem'], normal: ['bg-ok text-white', '✓', 'Normal / sudah TL'],
   verifikasi: ['bg-warn text-white', '!', 'Perlu verifikasi'], belum: ['border border-line bg-idle-bg text-idle', '·', 'Belum diinput']
 };
 const Collapse = ({ open, children }) => (
@@ -25,7 +27,7 @@ function Machines({ machines, date, lokasi, now, onPick }) {
           <div key={m.key} className="sticky left-0 z-10 bg-surface pr-2"><p className="font-semibold">{m.type || '—'} {m.tid}</p><p className="text-mute">{m.vendor || 'vendor belum ada'} • {m.problem} slot problem</p></div>
           {m.slots.map((c) => {
             const [cls, ico, name] = CELL[c.status]; const future = date > now.date || (date === now.date && c.hour > now.hour);
-            return <button key={`${m.key}${c.hour}`} onClick={() => onPick({ machine: m, cell: c, date, lokasi })} title={`${SLOTS[c.hour].label} • ${name}${c.reports.length ? ` • ${c.reports.length} laporan` : ''}`} aria-label={`${m.type} ${m.tid} ${SLOTS[c.hour].label} ${name}`} className={`h-7 w-[30px] rounded text-xs font-bold ${cls} ${future ? 'opacity-40' : ''} hover:ring-2 hover:ring-primary`}>{ico}</button>;
+            return <button key={`${m.key}${c.hour}`} onClick={() => onPick({ machine: m, cell: c, date, lokasi })} title={`${SLOTS[c.hour].label} • ${c.resolved ? 'Normal (problem sudah di-TL)' : name}${c.reports.length ? ` • ${c.reports.length} laporan` : ''}`} aria-label={`${m.type} ${m.tid} ${SLOTS[c.hour].label} ${name}`} className={`h-7 w-[30px] rounded text-xs font-bold ${cls} ${future ? 'opacity-40' : ''} hover:ring-2 hover:ring-primary`}>{ico}</button>;
           })}
         </>))}
       </div>
@@ -34,14 +36,21 @@ function Machines({ machines, date, lokasi, now, onPick }) {
 }
 
 export default function MonitoringDashboard({ data }) {
-  const { responses, master, loading, error, refresh } = data;
+  const { responses, master, tl = [], addTL, loading, error, refresh } = data;
   const now = nowInJakarta();
   const [date, setDate] = useState(now.date);
   const [bo, setBo] = useState(''); const [lokasi, setLokasi] = useState(''); const [q, setQ] = useState('');
   const [open, setOpen] = useState({}); const [slot, setSlot] = useState(null);
   const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
 
-  const tree = useMemo(() => buildTree(master, responses, date, now), [master, responses, date, now.date, now.hour]);
+  const tlMap = useMemo(() => new Map(tl.map((t) => [t.key, t])), [tl]);
+  const tree = useMemo(() => buildTree(master, responses, date, now, undefined, new Set(tlMap.keys())), [master, responses, tlMap, date, now.date, now.hour]);
+  const slotObj = useMemo(() => {
+    if (!slot) return null;
+    for (const b of tree) for (const l of b.lokasis) { const m = l.machines.find((x) => x.tid === slot.tid); if (m) return { machine: m, cell: m.slots[slot.hour], date: slot.date, lokasi: slot.lokasi }; }
+    return null;
+  }, [slot, tree]);
+  const onFollowUp = async (payload) => { const rec = await submitFollowUp(payload); addTL(rec); refresh(); return rec; };
   const lokOpts = (tree.find((b) => b.name === bo)?.lokasis || []).map((l) => l.name);
   const view = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -87,11 +96,11 @@ export default function MonitoringDashboard({ data }) {
                     <span className="font-medium">{l.name}</span><span className="text-xs text-mute">{l.type} • {l.machines.length} mesin</span>
                     <span className="ml-auto flex flex-wrap gap-2 text-xs">{l.machines.filter((m) => m.problem).map((m) => <span key={m.key} className="rounded bg-bad-bg px-1.5 py-0.5 text-bad">{m.type} {m.tid}</span>)}<Badge n={l.problemMachines} label="problem" /></span>
                   </button>
-                  <Collapse open={open[k]}><Machines machines={l.machines} date={date} lokasi={l.name} now={now} onPick={setSlot} /></Collapse>
+                  <Collapse open={open[k]}><Machines machines={l.machines} date={date} lokasi={l.name} now={now} onPick={(p) => setSlot({ tid: p.machine.tid, hour: p.cell.hour, date: p.date, lokasi: p.lokasi })} /></Collapse>
                 </div>);
             })}</div></Collapse>
           </section>))}</div></>)}
-      <SlotPanel slot={slot} onClose={() => setSlot(null)} />
+      <SlotPanel slot={slotObj} tlMap={tlMap} writeEnabled={!!APP_CONFIG.writeApiUrl} onFollowUp={onFollowUp} onClose={() => setSlot(null)} />
     </PageShell>
   );
 }

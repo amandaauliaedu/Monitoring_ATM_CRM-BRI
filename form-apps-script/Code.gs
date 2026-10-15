@@ -15,8 +15,18 @@ const CONFIG = {
   MAX_FILE_SIZE: 5 * 1024 * 1024,
   // false = foto hanya bisa dibuka akun yang punya akses ke folder Drive.
   // true  = siapa pun yang memegang link bisa melihat foto (cek kebijakan organisasi dulu).
-  SHARE_PHOTO_WITH_LINK: false
+  SHARE_PHOTO_WITH_LINK: false,
+
+  // Tindak Lanjut (TL)
+  TL_SHEET: 'Tindak_Lanjut',
+  TL_PHOTO_FOLDER_ID: '1IlWOb72vux7RoGdQUZRSPY1vx-ZIWYkf', // folder Drive untuk foto TL
+  TL_PHOTO_REQUIRED: true
 };
+
+const TL_HEADERS = [
+  'Timestamp TL', 'Timestamp Laporan', 'Tanggal Monitoring', 'Jam Monitoring', 'TID', 'Branch Office', 'Lokasi',
+  'Petugas TL', 'Tanggal TL', 'Jam TL', 'Foto TL'
+];
 
 const DB_HEADERS = ['TID', 'Tipe Mesin', 'Branch Office', 'Lokasi', 'Jenis'];
 
@@ -45,6 +55,26 @@ function doGet() {
     .setTitle('Monitoring ATM & CRM Onsite RO Surabaya')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+}
+
+/**
+ * API tulis untuk website dashboard (JSON, POST).
+ * Body: { action: 'followUp', ... }. Website memanggil tanpa header khusus agar tidak memicu preflight CORS.
+ * Deploy Web app dengan akses "Siapa saja" agar bisa dipanggil dari website.
+ */
+function doPost(e) {
+  let body;
+  try {
+    body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+  } catch (err) {
+    return jsonOut_({ success: false, message: 'Permintaan tidak valid.' });
+  }
+  if (body.action === 'followUp') return jsonOut_(saveFollowUp(body));
+  return jsonOut_({ success: false, message: 'Aksi tidak dikenal.' });
+}
+
+function jsonOut_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** Satu panggilan untuk semua data yang dibutuhkan form. */
@@ -212,8 +242,8 @@ function validate_(f, db) {
 /* Foto                                                                */
 /* ------------------------------------------------------------------ */
 
-function uploadPhoto_(fileObj, d) {
-  if (!fileObj || !fileObj.data) return '';
+/** Memvalidasi & mengubah data URL gambar menjadi Blob (maks. 5 MB). */
+function decodeImage_(fileObj, baseName) {
   const dataUrl = String(fileObj.data);
   if (dataUrl.length > CONFIG.MAX_FILE_SIZE * 1.4) throw new Error('Ukuran foto melebihi batas maksimal 5 MB.');
 
@@ -224,16 +254,21 @@ function uploadPhoto_(fileObj, d) {
   if (bytes.length > CONFIG.MAX_FILE_SIZE) throw new Error('Ukuran foto melebihi batas maksimal 5 MB.');
 
   const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic' }[m[1]] || 'jpg';
-  const name = (d.tid + '_' + d.tanggal + '_' + d.jam.replace(':', '') + '.' + ext).replace(/[\\/:*?"<>|]/g, '_');
-  const blob = Utilities.newBlob(bytes, m[1], name);
+  return Utilities.newBlob(bytes, m[1], (baseName + '.' + ext).replace(/[\\/:*?"<>|]/g, '_'));
+}
 
-  const it = DriveApp.getFoldersByName(CONFIG.PHOTO_FOLDER);
-  const folder = it.hasNext() ? it.next() : DriveApp.createFolder(CONFIG.PHOTO_FOLDER);
+function saveBlob_(blob, folder) {
   const file = folder.createFile(blob);
-  if (CONFIG.SHARE_PHOTO_WITH_LINK) {
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  }
+  if (CONFIG.SHARE_PHOTO_WITH_LINK) file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return file.getUrl();
+}
+
+/** Foto dari form monitoring: folder berdasarkan nama (dibuat jika belum ada). */
+function uploadPhoto_(fileObj, d) {
+  if (!fileObj || !fileObj.data) return '';
+  const blob = decodeImage_(fileObj, d.tid + '_' + d.tanggal + '_' + d.jam.replace(':', ''));
+  const it = DriveApp.getFoldersByName(CONFIG.PHOTO_FOLDER);
+  return saveBlob_(blob, it.hasNext() ? it.next() : DriveApp.createFolder(CONFIG.PHOTO_FOLDER));
 }
 
 /* ------------------------------------------------------------------ */
@@ -264,6 +299,89 @@ function saveData(formData) {
     return {
       success: true,
       message: 'Data monitoring berhasil disimpan.' + (d.newTid ? ' TID ' + d.tid + ' ditambahkan ke Database_Monitoring.' : '')
+    };
+  } catch (error) {
+    return { success: false, message: error.message || String(error) };
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* lock tidak dipegang */ }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Tindak Lanjut (TL)                                                  */
+/* ------------------------------------------------------------------ */
+
+function getTLSheet_() {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName(CONFIG.TL_SHEET);
+  if (!sheet) sheet = ss.insertSheet(CONFIG.TL_SHEET);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, TL_HEADERS.length).setValues([TL_HEADERS]);
+    sheet.setFrozenRows(1);
+  }
+  assertHeaders_(sheet, TL_HEADERS);
+  return sheet;
+}
+
+/**
+ * Mencatat TL untuk satu laporan Problem. Laporan asli TIDAK diubah; TL disimpan sebagai baris baru
+ * di sheet Tindak_Lanjut (riwayat tetap utuh). Tanggal & jam TL ditentukan server (WIB).
+ */
+function saveFollowUp(f) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+    if (!f) throw new Error('Data TL tidak ditemukan.');
+
+    const pin = PropertiesService.getScriptProperties().getProperty('TL_PIN');
+    if (pin && String(f.pin || '') !== pin) throw new Error('PIN tindak lanjut salah.');
+
+    const tid = clean_(f.tid, 30);
+    const ts = clean_(f.timestampLaporan, 30);
+    const tanggal = clean_(f.tanggal, 10);
+    const jam = clean_(f.jam, 5);
+    const petugas = clean_(f.petugas, 100);
+    if (!tid || !ts) throw new Error('Laporan yang di-TL tidak teridentifikasi.');
+    if (petugas.length < 2) throw new Error('Nama petugas TL wajib diisi.');
+    const hasPhoto = !!(f.fileObj && f.fileObj.data);
+    if (CONFIG.TL_PHOTO_REQUIRED && !hasPhoto) throw new Error('Foto TL wajib diunggah.');
+
+    // Cari laporan aslinya: harus ada dan berstatus Problem.
+    const resp = getResponseSheet_();
+    const last = resp.getLastRow();
+    const data = last < 2 ? [] : resp.getRange(2, 1, last - 1, RESPONSE_HEADERS.length).getDisplayValues();
+    const rep = data.filter(function (r) {
+      return String(r[0]).trim() === ts && String(r[6]).trim() === tid &&
+        String(r[1]).trim() === tanggal && String(r[2]).trim() === jam;
+    })[0];
+    if (!rep) throw new Error('Laporan tidak ditemukan. Muat ulang halaman lalu coba lagi.');
+    if (String(rep[10]).trim() !== 'Problem') throw new Error('Hanya laporan berstatus Problem yang dapat di-TL.');
+
+    // Cegah TL ganda untuk laporan yang sama.
+    const tlSheet = getTLSheet_();
+    const tlLast = tlSheet.getLastRow();
+    const tlRows = tlLast < 2 ? [] : tlSheet.getRange(2, 1, tlLast - 1, 5).getDisplayValues();
+    if (tlRows.some(function (r) { return String(r[1]).trim() === ts && String(r[4]).trim() === tid; })) {
+      throw new Error('Laporan ini sudah di-TL sebelumnya.');
+    }
+
+    const now = new Date();
+    const tanggalTL = Utilities.formatDate(now, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+    const jamTL = Utilities.formatDate(now, CONFIG.TIMEZONE, 'HH:mm');
+
+    let fotoUrl = '';
+    if (hasPhoto) {
+      const blob = decodeImage_(f.fileObj, 'TL_' + tid + '_' + tanggal + '_' + jam.replace(':', '') + '_' +
+        Utilities.formatDate(now, CONFIG.TIMEZONE, 'yyyyMMdd-HHmmss'));
+      fotoUrl = saveBlob_(blob, DriveApp.getFolderById(CONFIG.TL_PHOTO_FOLDER_ID));
+    }
+
+    writeRow_(tlSheet, [now, ts, tanggal, jam, tid, rep[4], rep[5], petugas, tanggalTL, jamTL, fotoUrl], 'yyyy-mm-dd hh:mm:ss');
+
+    return {
+      success: true,
+      message: 'Tindak lanjut berhasil disimpan.',
+      data: { timestampLaporan: ts, tid: tid, tanggalTL: tanggalTL, jamTL: jamTL, petugas: petugas, foto: fotoUrl }
     };
   } catch (error) {
     return { success: false, message: error.message || String(error) };

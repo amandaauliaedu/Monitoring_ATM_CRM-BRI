@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseHour, normalizeDate, slotLabel } from './dateUtils.js';
-import { splitProblems, normalizeResponse, deriveSlotStatus, groupBySlot, slotStats, STATUS } from './monitoringUtils.js';
+import { normalizeFollowUp, reportKey, splitProblems, normalizeResponse, deriveSlotStatus, groupBySlot, slotStats, STATUS } from './monitoringUtils.js';
 
 const row = { Tanggal: '2026-10-13', Jam: '23:30', 'Branch Office': 'KC Bangkalan', Lokasi: 'Unit Kamal 2', TID: '161238', Mesin: 'crm', 'Jenis Uker': 'UNIT', Status: 'Problem', 'Keterangan Problem': 'Tarik Tunai (50.000), Offline' };
 describe('waktu', () => {
@@ -13,6 +13,13 @@ describe('parsing', () => {
   it('baris Problem -> laporan', () => { const r = normalizeResponse(row); expect(r.hour).toBe(23); expect(r.status).toBe(STATUS.PROBLEM); expect(r.problems).toHaveLength(2); expect(r.machineType).toBe('CRM'); });
   it('baris Normal -> hijau', () => { expect(normalizeResponse({ ...row, Status: 'Normal', 'Keterangan Problem': '-' }).status).toBe(STATUS.NORMAL); });
   it('tanpa TID dilewati', () => { expect(normalizeResponse({ ...row, TID: '' })).toBeNull(); });
+});
+describe('TL', () => {
+  it('kunci TL cocok dengan kunci laporan', () => {
+    const r = normalizeResponse({ ...row, Timestamp: '2026-10-13 23:31:02' });
+    expect(normalizeFollowUp({ 'Timestamp Laporan': '2026-10-13 23:31:02', TID: '161238', 'Tanggal TL': '2026-10-14', 'Jam TL': '08:00', 'Petugas TL': 'A', 'Foto TL': 'u' }).key).toBe(reportKey(r));
+    expect(normalizeFollowUp({ TID: '1' })).toBeNull();
+  });
 });
 describe('status & slot', () => {
   const r = normalizeResponse(row);
