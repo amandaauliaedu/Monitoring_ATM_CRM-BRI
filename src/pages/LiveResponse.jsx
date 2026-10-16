@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Download, RefreshCw } from 'lucide-react';
 import ReportPanel from '../components/ReportPanel.jsx';
-import { Kpi, Card, ErrorBox, Empty, field } from '../components/ui.jsx';
+import { Card, ErrorBox, Empty, field } from '../components/ui.jsx';
 import { applyFilters, boOptions, lokasiOptions, EMPTY_FILTERS } from '../utils/filterUtils.js';
 import { exportLiveResponses, LIVE_COLUMNS } from '../services/exportService.js';
+import { STATUS } from '../utils/monitoringUtils.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const pad = (n) => String(n).padStart(2, '0');
@@ -19,6 +21,7 @@ export default function LiveResponse({ live }) {
   const [sel, setSel] = useState(null);
   const [toast, setToast] = useState(null);
   const [now, setNow] = useState(clock());
+  const navigate = useNavigate();
   useEffect(() => { const t = setInterval(() => setNow(clock()), 1000); return () => clearInterval(t); }, []);
 
   const set = (p) => { setF((x) => ({ ...x, ...p })); setPage(1); };
@@ -32,6 +35,17 @@ export default function LiveResponse({ live }) {
   const cur = Math.min(page, pages);
   const view = filtered.slice((cur - 1) * size, cur * size);
   const uk = (pred) => new Set(filtered.filter(pred).map((r) => `${r.bo}|${r.lokasi}`)).size;
+  const typeKey = (r) => String(r.ukerType ?? '').trim().toUpperCase();
+  const FIXED = ['KK', 'KCP', 'UNIT'];
+  const otherTypes = [...new Set(filtered.map(typeKey).filter((t) => t && !FIXED.includes(t)))].sort();
+  const Chip = ({ label, value }) => (
+    <div className="flex items-baseline gap-2 rounded-lg border border-white/70 bg-white/80 px-3 py-1.5 shadow-sm">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-mute">{label}</span><span className="text-lg font-bold leading-none text-navy">{value}</span>
+    </div>);
+  const typeKpi = (t, label = t) => <Chip key={t} label={`Total ${label}`} value={uk((r) => typeKey(r) === t)} />;
+  // Problem yang belum di-TL -> kolom TL merah, klik membuka Monitoring Dashboard pada slot problem tsb.
+  const needTL = (r) => r.status === STATUS.PROBLEM && !r.tlDone;
+  const goDashboard = (r) => navigate(`/monitoring?${new URLSearchParams({ date: r.date, bo: r.bo, lokasi: r.lokasi, tid: r.tid, hour: String(r.hour) })}`);
 
   const download = () => {
     try { setToast({ ok: true, msg: `${exportLiveResponses(filtered)} baris berhasil diekspor.` }); }
@@ -54,9 +68,9 @@ export default function LiveResponse({ live }) {
       <h1 className="text-3xl font-bold text-navy">Live Response</h1>
       <p className="mb-4 mt-1 text-sm text-mute">Data monitoring ATM &amp; CRM langsung dari Google Sheets • {rowsRead ?? data.length} baris terbaca dari sheet{skipped ? ` • ${skipped} baris dilewati (tanggal/jam/TID tidak valid)` : ''}.</p>
       <ErrorBox error={error} onRetry={refresh} />
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Kpi label="Total Response" value={filtered.length} /><Kpi label="Total Uker" value={uk(() => true)} /><Kpi label="Total BO" value={new Set(filtered.map((r) => r.bo)).size} />
-        <Kpi label="Total KK/KCP" value={uk((r) => ['KK', 'KCP'].includes(r.ukerType))} /><Kpi label="Total Unit" value={uk((r) => r.ukerType === 'UNIT')} />
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Chip label="Total Response" value={filtered.length} /><Chip label="Total Uker" value={uk(() => true)} /><Chip label="Total BO" value={new Set(filtered.map((r) => r.bo)).size} />
+        {typeKpi('KCP')}{typeKpi('KK')}{otherTypes.map((t) => typeKpi(t))}{typeKpi('UNIT', 'Unit')}
       </div>
       <Card className="mb-4"><div className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="font-semibold text-navy">Download Excel</p><p className="text-sm text-mute">Unduh {filtered.length} baris sesuai filter &amp; pencarian saat ini dalam format .xlsx</p></div>
@@ -74,6 +88,14 @@ export default function LiveResponse({ live }) {
               <tr key={r.id} tabIndex={0} onClick={() => setSel(r)} onKeyDown={(e) => e.key === 'Enter' && setSel(r)} className="cursor-pointer border-t border-line/70 align-top hover:bg-primary-light/50">
                 {LIVE_COLUMNS.map(([h, key]) => {
                   const v = r.raw[key] ?? '';
+                  if (h === 'Waktu TL' || h === 'Foto TL') {
+                    if (needTL(r)) return (
+                      <td key={h} className="p-0">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); goDashboard(r); }} title="Belum di-TL — klik untuk membuka Monitoring Dashboard"
+                          className="block h-full w-full min-w-[110px] bg-bad px-3 py-2 text-left text-xs font-bold text-white hover:bg-red-700">Belum TL</button>
+                      </td>);
+                    if (h === 'Foto TL') return <td key={h} className="px-3 py-2">{v ? <a href={v} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="whitespace-nowrap font-medium text-primary underline">Buka foto</a> : '—'}</td>;
+                  }
                   if (h === 'Foto Mesin') return <td key={h} className="px-3 py-2">{v ? <a href={v} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="whitespace-nowrap font-medium text-primary underline">Buka foto</a> : '—'}</td>;
                   const long = h === 'Keterangan Problem' || h === 'Detail Kendala Lainnya';
                   return <td key={h} className={`px-3 py-2 ${long ? 'min-w-[220px]' : 'whitespace-nowrap'}`}>{v || '—'}</td>;

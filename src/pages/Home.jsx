@@ -16,7 +16,7 @@ export default function Home({ data, onDownload }) {
         <div>
           <p className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-primary"><Copyright size={12} />Operation, Service, and E-Channel (OSE)</p>
           <h1 className="mt-5 text-5xl font-bold leading-[1.05] tracking-tight text-navy sm:text-6xl">BRI REGION 12<br /><span className="inline-block border-b-2 border-primary pb-2 text-primary">SURABAYA</span></h1>
-          <p className="mt-5 max-w-md text-mute">Monitoring ATM &amp; CRM Onsite: kondisi mesin per Branch Office dan Unit Kerja selama 24 jam.</p>
+          <p className="mt-5 max-w-md text-mute">Monitoring Kondisi Mesin ATM &amp; CRM Onsite Tiap Branch Office dan Unit Kerja selama 24 jam.</p>
           <div className="mt-6 flex flex-wrap gap-2">
             <Link to="/live-response" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-primary-hover">Lihat Live Response <ArrowUpRight size={14} /></Link>
             <button onClick={onDownload} className="flex items-center gap-2 rounded-lg border border-line bg-white/90 px-4 py-2.5 text-sm hover:bg-primary-light"><Download size={14} />Unduh Data Excel</button>
@@ -33,7 +33,7 @@ export default function Home({ data, onDownload }) {
           <Kpi label="Total response" value={responses.length} icon={ClipboardList} hint="semua data" />
           <Kpi label="BO aktif (sudah melapor)" value={new Set(responses.map((r) => r.bo)).size} suffix={`/ ${boTotal}`} icon={Building2} />
           <Kpi label="Mesin bermasalah" value={new Set(prob.map(machineKey)).size} icon={AlertTriangle} tone="text-bad" hint={`${prob.length} laporan gangguan`} />
-          <Kpi label="Lokasi terdampak" value={new Set(prob.map((r) => `${r.bo}|${r.lokasi}`)).size} suffix={`/ ${lokasiTotal}`} icon={ShieldAlert} />
+          <Kpi label="Lokasi Mesin Bermasalah" value={new Set(prob.map((r) => `${r.bo}|${r.lokasi}`)).size} suffix={`/ ${lokasiTotal}`} icon={ShieldAlert} />
         </div>)}
     </motion.main>
   );

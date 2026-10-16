@@ -28,13 +28,14 @@ Pemetaan ada di `src/config/columnMapping.js`; nama tab di `src/config/appConfig
 Form input (Apps Script) ada di `form-apps-script/` (Code.gs + Form.html), terpisah dari backend baca opsional di `backend/`.
 
 ## Tindak Lanjut (TL)
-Di Monitoring Dashboard, klik kotak merah, lalu "Sudah di-TL": isi nama petugas, unggah foto (maks. 5 MB). Jam TL dicatat otomatis oleh server (WIB).
-- TL disimpan sebagai baris baru di sheet `Tindak_Lanjut` (dibuat otomatis saat TL pertama). Laporan asli di `Jawaban_Monitoring` tidak diubah.
-- Slot menjadi hijau jika semua laporan Problem di slot itu sudah di-TL. Data Analyst tetap menghitung laporan Problem aslinya (riwayat).
-- Foto TL disimpan di folder Drive `1IlWOb72vux7RoGdQUZRSPY1vx-ZIWYkf` (`CONFIG.TL_PHOTO_FOLDER_ID` di `form-apps-script/Code.gs`). Akun pemilik Apps Script harus punya akses Editor ke folder itu.
-- Aktifkan: tempel `form-apps-script/Code.gs` terbaru, **Deploy > Manage deployments > Edit > Version: New version**, akses "Siapa saja", lalu isi `VITE_WRITE_API_URL` (URL /exec) dan redeploy website.
-- PIN opsional: Script Properties `TL_PIN`. Jika diisi, petugas harus mengetik PIN itu di form TL (PIN tidak disimpan di kode website).
-- Keamanan: endpoint dengan akses "Siapa saja" dapat dipanggil siapa pun yang mengetahui URL-nya. Server memvalidasi laporan, mencegah TL ganda, dan membatasi tipe/ukuran foto, tetapi gunakan PIN bila perlu.
+Di Monitoring Dashboard, klik kotak merah. Di bawah laporan muncul blok TL: tanggal TL, jam TL, status (Sudah/Belum di-TL), dan foto bukti.
+Tekan "Sudah di-TL", unggah foto (maks. 5 MB), lalu tekan "Done". Jam TL dicatat otomatis oleh server (WIB).
+- Disimpan di sheet `Jawaban_Monitoring` pada baris laporan yang sama: **kolom O = Waktu TL** (`yyyy-MM-dd HH:mm`), **kolom P = Foto TL** (link Drive). Judul O1 dan P1 dibuat otomatis jika masih kosong.
+- Kolom A:N (laporan asli) tidak diubah, dan TL yang sudah tercatat tidak bisa ditimpa.
+- Kotak jadi **biru** (Sudah TL) jika semua laporan Problem di slot itu sudah di-TL. Data Analyst tetap menghitung laporan Problem aslinya (riwayat).
+- Foto TL disimpan di folder Drive yang ditulis di `CONFIG.TL_PHOTO_FOLDER` (`form-apps-script/Code.gs`, boleh berupa link folder). Mengubah folder = ubah nilai itu lalu deploy **New version**; `.env` tidak berpengaruh. Akun pemilik Apps Script harus Editor di folder itu.
+- Aktifkan: tempel `form-apps-script/Code.gs`, **Deploy > Manage deployments > Edit > New version** (akses "Siapa saja"), lalu isi `VITE_WRITE_API_URL` di `.env` (lokal) dan di Vercel, restart/redeploy.
+- Keamanan: endpoint berakses "Siapa saja" dapat dipanggil siapa pun yang tahu URL-nya. Server memvalidasi laporan, mencegah TL ganda, dan membatasi tipe/ukuran foto.
 
 ## Aturan status slot
 Kunci slot = tanggal + TID + jam mulai (WIB, dari kolom Tanggal & Jam, bukan Timestamp).
@@ -44,3 +45,15 @@ Status "Normal" = hijau, "Problem" = merah, laporan bertentangan pada slot yang 
 ## Batasan saat ini
 - Belum ada input monitoring lewat web ini; input lewat form Apps Script.
 - Pembacaan langsung sheet (mode tanpa backend) belum diuji terhadap spreadsheet Anda dari lingkungan pembuat.
+
+## Jika TL gagal: "Failed to fetch"
+Browser tidak bisa menghubungi Web App. Cek berurutan:
+1. Buka `<VITE_WRITE_API_URL>?ping=1` di jendela Incognito. Harus muncul JSON `{"success":true,...}`.
+   - Diminta login Google: akses deployment belum "Anyone" (Deploy > Manage deployments > Edit > Who has access: Anyone > New version).
+   - Muncul formulir biasa / error "Script function not found": kode belum versi terbaru, deploy **New version**.
+   - URL tidak berakhiran `/exec` (mis. `/dev`): pakai URL dari Manage deployments.
+2. Pastikan `.env` (lokal) / Environment Variables (Vercel) berisi URL yang sama, lalu restart / redeploy.
+- `VITE_WRITE_API_URL` harus URL Web App (`https://script.google.com/macros/s/.../exec`), bukan link folder Drive. Aplikasi menampilkan peringatan jika bentuknya salah.
+
+## Foto Mesin
+Foto Mesin wajib diisi di form monitoring (validasi di browser dan di server; `CONFIG.PHOTO_REQUIRED` di Code.gs). Maks. 5 MB, format gambar.

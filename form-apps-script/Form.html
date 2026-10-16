@@ -152,9 +152,9 @@
           </div>
 
           <div class="field stack">
-            <label for="foto">Foto Mesin</label>
+            <label for="foto">Foto Mesin <span class="required">*</span></label>
             <input id="foto" type="file" accept="image/*">
-            <div class="helper">Opsional. Format gambar (JPG, PNG, dll). Ukuran maksimal 5 MB.</div>
+            <div class="helper">Wajib diisi. Format gambar (JPG, PNG, dll). Ukuran maksimal 5 MB.</div>
             <img id="photoPreview" class="photo-preview" alt="Pratinjau foto mesin">
           </div>
         </section>
@@ -333,8 +333,9 @@
         if (ps.indexOf(OTHER) >= 0 && !$('detailLainnya').value.trim()) throw new Error('Isi Detail Kendala Lainnya jika memilih Lainnya.');
       }
       var f = foto.files && foto.files[0];
-      if (f && (!f.type || f.type.indexOf('image/') !== 0)) throw new Error('File yang diunggah harus berupa gambar.');
-      if (f && f.size > MAX_PHOTO) throw new Error('Ukuran foto maksimal 5 MB.');
+      if (!f) throw new Error('Foto Mesin wajib diunggah.');
+      if (!f.type || f.type.indexOf('image/') !== 0) throw new Error('File yang diunggah harus berupa gambar.');
+      if (f.size > MAX_PHOTO) throw new Error('Ukuran foto maksimal 5 MB.');
     }
     function buildPayload(fileObj) {
       var isNew = tid.value === MANUAL;

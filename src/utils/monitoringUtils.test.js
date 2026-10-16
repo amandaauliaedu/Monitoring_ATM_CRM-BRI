@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseHour, normalizeDate, slotLabel } from './dateUtils.js';
-import { normalizeFollowUp, reportKey, splitProblems, normalizeResponse, deriveSlotStatus, groupBySlot, slotStats, STATUS } from './monitoringUtils.js';
+import { reportKey, splitProblems, normalizeResponse, deriveSlotStatus, groupBySlot, slotStats, STATUS } from './monitoringUtils.js';
 
 const row = { Tanggal: '2026-10-13', Jam: '23:30', 'Branch Office': 'KC Bangkalan', Lokasi: 'Unit Kamal 2', TID: '161238', Mesin: 'crm', 'Jenis Uker': 'UNIT', Status: 'Problem', 'Keterangan Problem': 'Tarik Tunai (50.000), Offline' };
 describe('waktu', () => {
@@ -14,11 +14,13 @@ describe('parsing', () => {
   it('baris Normal -> hijau', () => { expect(normalizeResponse({ ...row, Status: 'Normal', 'Keterangan Problem': '-' }).status).toBe(STATUS.NORMAL); });
   it('tanpa TID dilewati', () => { expect(normalizeResponse({ ...row, TID: '' })).toBeNull(); });
 });
-describe('TL', () => {
-  it('kunci TL cocok dengan kunci laporan', () => {
-    const r = normalizeResponse({ ...row, Timestamp: '2026-10-13 23:31:02' });
-    expect(normalizeFollowUp({ 'Timestamp Laporan': '2026-10-13 23:31:02', TID: '161238', 'Tanggal TL': '2026-10-14', 'Jam TL': '08:00', 'Petugas TL': 'A', 'Foto TL': 'u' }).key).toBe(reportKey(r));
-    expect(normalizeFollowUp({ TID: '1' })).toBeNull();
+describe('TL (kolom O-P)', () => {
+  const r = normalizeResponse({ ...row, Timestamp: '2026-10-13 23:31:02' });
+  it('tanpa Waktu TL = belum di-TL', () => { expect(r.tlDone).toBe(false); expect(reportKey(r)).toBe('2026-10-13 23:31:02|161238'); });
+  it('Waktu TL terisi = sudah di-TL, status asli tetap Problem', () => {
+    const t = normalizeResponse({ ...row, 'Waktu TL': '2026-10-14 08:00', 'Foto TL': 'https://drive/x' });
+    expect(t.tlDone).toBe(true); expect(t.status).toBe(STATUS.PROBLEM); expect(t.tlPhoto).toBe('https://drive/x');
+    expect(deriveSlotStatus([t])).toBe(STATUS.TL); expect(deriveSlotStatus([t, r])).toBe(STATUS.PROBLEM);
   });
 });
 describe('status & slot', () => {

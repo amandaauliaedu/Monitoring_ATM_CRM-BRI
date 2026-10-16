@@ -1,7 +1,7 @@
 import { RESPONSE_COLUMNS as C } from '../config/columnMapping.js';
 import { normalizeDate, parseHour, SLOT_COUNT, nowInJakarta } from './dateUtils.js';
 
-export const STATUS = { NORMAL: 'normal', PROBLEM: 'bermasalah', EMPTY: 'belum', VERIFY: 'verifikasi' };
+export const STATUS = { NORMAL: 'normal', PROBLEM: 'bermasalah', EMPTY: 'belum', VERIFY: 'verifikasi', TL: 'sudah_tl' };
 
 // Pisah koma hanya di luar tanda kurung; "-" (tanda kosong dari form) diabaikan.
 export function splitProblems(v) {
@@ -18,11 +18,6 @@ export function splitProblems(v) {
 export const machineKey = (r) => String(r.tid ?? '').trim();
 // Kunci laporan untuk mencocokkan Tindak Lanjut: Timestamp laporan + TID.
 export const reportKey = (r) => `${String(r.timestamp ?? '').trim()}|${String(r.tid ?? '').trim()}`;
-export function normalizeFollowUp(t) {
-  const ts = String(t['Timestamp Laporan'] ?? '').trim(); const tid = String(t['TID'] ?? '').trim();
-  if (!ts || !tid) return null;
-  return { key: `${ts}|${tid}`, tid, tanggalTL: String(t['Tanggal TL'] ?? '').trim(), jamTL: String(t['Jam TL'] ?? '').trim(), petugas: String(t['Petugas TL'] ?? '').trim(), foto: String(t['Foto TL'] ?? '').trim() };
-}
 export const slotKey = (r) => `${r.date}|${machineKey(r)}|${r.hour}`;
 
 // Baris mentah -> laporan bernorma. null jika tanggal/jam/TID tidak valid.
@@ -37,14 +32,19 @@ export function normalizeResponse(row, i = 0) {
     id: `r${i}`, raw: row, timestamp: row[C.timestamp] || '', date, hour, reporter: row[C.reporter] || '',
     bo: String(row[C.branch] ?? '').trim(), lokasi: String(row[C.location] ?? '').trim(), ukerType: String(row[C.ukerType] ?? '').trim(),
     machineType: String(row[C.machineType] || '').trim().toUpperCase(), tid, vendor: row[C.vendor] || '',
-    problems, detail: row[C.detail] || '', photo: row[C.photo] || '', status
+    problems, detail: row[C.detail] || '', photo: row[C.photo] || '', status,
+    tlTime: String(row[C.tlTime] ?? '').trim(), tlPhoto: String(row[C.tlPhoto] ?? '').trim(), tlDone: String(row[C.tlTime] ?? '').trim() !== ''
   };
 }
+// Problem yang sudah di-TL dihitung "sudah TL" (biru). Problem yang belum di-TL tetap merah.
+export const effectiveStatus = (r) => (r.status === STATUS.PROBLEM && r.tlDone ? STATUS.TL : r.status);
 export function deriveSlotStatus(reports) {
   if (!reports || !reports.length) return STATUS.EMPTY;
-  const set = new Set(reports.map((r) => r.status));
-  if (set.has(STATUS.VERIFY) || set.size > 1) return STATUS.VERIFY;
-  return [...set][0];
+  const set = new Set(reports.map(effectiveStatus));
+  if (set.has(STATUS.VERIFY)) return STATUS.VERIFY;
+  if (set.has(STATUS.PROBLEM)) return set.has(STATUS.NORMAL) ? STATUS.VERIFY : STATUS.PROBLEM;
+  if (set.has(STATUS.TL)) return STATUS.TL;
+  return STATUS.NORMAL;
 }
 export function groupBySlot(reports) {
   const m = new Map();
@@ -52,7 +52,7 @@ export function groupBySlot(reports) {
   return m;
 }
 export function slotStats(machine, date, grouped, now = nowInJakarta()) {
-  const counts = { normal: 0, bermasalah: 0, belum: 0, verifikasi: 0 };
+  const counts = { normal: 0, bermasalah: 0, belum: 0, verifikasi: 0, sudah_tl: 0 };
   let filled = 0; let due = 0; let dueFilled = 0;
   for (let h = 0; h < SLOT_COUNT; h++) {
     const has = grouped.get(`${date}|${machineKey(machine)}|${h}`);

@@ -8,6 +8,7 @@ export default {
       ok: { DEFAULT: 'var(--color-success)', bg: 'var(--color-success-bg)' },
       bad: { DEFAULT: 'var(--color-danger)', bg: 'var(--color-danger-bg)' },
       warn: { DEFAULT: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
+      tl: { DEFAULT: 'var(--color-tl)', bg: 'var(--color-tl-bg)' },
       idle: { DEFAULT: 'var(--color-neutral)', bg: 'var(--color-neutral-bg)' }
     },
     fontFamily: { sans: ['"Space Grotesk"', 'system-ui', 'sans-serif'], mono: ['"Space Mono"', 'ui-monospace', 'monospace'] }

@@ -6,6 +6,7 @@
   --color-text-primary: #172B4D; --color-text-secondary: #64748B;
   --color-success: #16A34A; --color-success-bg: #DCFCE7; --color-danger: #DC2626; --color-danger-bg: #FEE2E2;
   --color-warning: #D97706; --color-warning-bg: #FEF3C7; --color-neutral: #94A3B8; --color-neutral-bg: #F1F5F9;
+  --color-tl: #2563EB; --color-tl-bg: #DBEAFE;
 }
 body { background: var(--color-background); color: var(--color-text-primary); font-family: 'Space Grotesk', system-ui, sans-serif; }
 body { background-image: radial-gradient(55% 45% at 5% 12%, #BFD9FB, transparent), radial-gradient(45% 45% at 100% 55%, #E6DDFB, transparent), radial-gradient(55% 40% at 90% 100%, #BDEBFA, transparent); background-attachment: fixed; }

@@ -6,7 +6,7 @@ import { RESPONSE_COLUMNS as C } from '../config/columnMapping.js';
 
 // Kolom sesuai header sheet Jawaban_Monitoring (tanpa Timestamp), nilai apa adanya dari sheet.
 export const LIVE_COLUMNS = [['Tanggal', C.date], ['Jam', C.time], ['Nama Petugas', C.reporter], ['Branch Office', C.branch], ['Lokasi', C.location], ['TID', C.tid],
-  ['Mesin', C.machineType], ['Jenis Uker', C.ukerType], ['Vendor', C.vendor], ['Status', C.status], ['Keterangan Problem', C.problems], ['Detail Kendala Lainnya', C.detail], ['Foto Mesin', C.photo]];
+  ['Mesin', C.machineType], ['Jenis Uker', C.ukerType], ['Vendor', C.vendor], ['Status', C.status], ['Keterangan Problem', C.problems], ['Detail Kendala Lainnya', C.detail], ['Foto Mesin', C.photo], ['Waktu TL', C.tlTime], ['Foto TL', C.tlPhoto]];
 
 export function exportLiveResponses(rows) {
   if (!rows.length) throw new Error('Tidak ada data untuk diekspor.');

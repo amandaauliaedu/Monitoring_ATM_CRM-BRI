@@ -16,17 +16,14 @@ describe('tree dari Database_Monitoring', () => {
   it('mesin yang belum pernah melapor tetap muncul', () => { const ms = t[0].lokasis[0].machines; expect(ms).toHaveLength(2); expect(ms.find((m) => m.tid === '2').empty).toBe(24); });
   it('24 slot, 2 problem', () => { const m = t[0].lokasis[0].machines.find((x) => x.tid === '1'); expect(m.slots).toHaveLength(24); expect(m.problem).toBe(2); expect(t[0].problemMachines).toBe(1); });
   it('TID yang hanya ada di laporan ikut tampil', () => { expect(buildTree(master, [mk({ tid: '9' })], '2026-10-13', now, false)[0].lokasis[0].machines).toHaveLength(3); });
-  it('problem yang sudah di-TL menjadi hijau, laporan asli tetap ada', () => {
-    const r = mk({ timestamp: '2026-10-13 11:05:00' });
-    const m = buildTree(master, [r], '2026-10-13', now, false, new Set(['2026-10-13 11:05:00|1']))[0].lokasis[0].machines.find((x) => x.tid === '1');
-    expect(m.slots[11].status).toBe('normal'); expect(m.slots[11].resolved).toBe(true); expect(m.slots[11].reports).toHaveLength(1); expect(m.problem).toBe(0);
+  const pick = (t) => t[0].lokasis[0].machines.find((x) => x.tid === '1');
+  it('problem yang sudah di-TL menjadi biru, bukan problem, laporan asli tetap ada', () => {
+    const m = pick(buildTree(master, [mk({ tlDone: true })], '2026-10-13', now, false));
+    expect(m.slots[11].status).toBe('sudah_tl'); expect(m.problem).toBe(0); expect(m.tl).toBe(1); expect(m.slots[11].reports).toHaveLength(1);
   });
-  it('dua problem di satu slot: baru hijau jika keduanya di-TL', () => {
-    const a = mk({ timestamp: 'A' }); const b = mk({ timestamp: 'B' });
-    const one = buildTree(master, [a, b], '2026-10-13', now, false, new Set(['A|1']))[0].lokasis[0].machines.find((x) => x.tid === '1');
-    expect(one.slots[11].status).toBe('bermasalah');
-    const both = buildTree(master, [a, b], '2026-10-13', now, false, new Set(['A|1', 'B|1']))[0].lokasis[0].machines.find((x) => x.tid === '1');
-    expect(both.slots[11].status).toBe('normal');
+  it('dua problem di satu slot: biru hanya jika keduanya di-TL', () => {
+    expect(pick(buildTree(master, [mk({}), mk({ tlDone: true })], '2026-10-13', now, false)).slots[11].status).toBe('bermasalah');
+    expect(pick(buildTree(master, [mk({ tlDone: true }), mk({ tlDone: true })], '2026-10-13', now, false)).slots[11].status).toBe('sudah_tl');
   });
   it('emptyAsNormal hanya untuk slot yang sudah lewat', () => { const x = buildTree(master, [mk({})], '2026-10-13', now, true)[0].lokasis[0].machines.find((m) => m.tid === '1'); expect(x.normal).toBe(13); expect(x.empty).toBe(10); });
 });

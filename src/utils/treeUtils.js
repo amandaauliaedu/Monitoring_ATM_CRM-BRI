@@ -1,11 +1,11 @@
-import { groupBySlot, deriveSlotStatus, reportKey, STATUS } from './monitoringUtils.js';
+import { groupBySlot, deriveSlotStatus, STATUS } from './monitoringUtils.js';
 import { SLOT_COUNT } from './dateUtils.js';
 import { APP_CONFIG } from '../config/appConfig.js';
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'id', { numeric: true });
 
 // Branch Office -> Lokasi -> mesin (daftar mesin dari Database_Monitoring, ditambah TID yang hanya ada di laporan).
-export function buildTree(master, responses, date, now, emptyAsNormal = APP_CONFIG.emptyAsNormal, tlKeys = new Set()) {
+export function buildTree(master, responses, date, now, emptyAsNormal = APP_CONFIG.emptyAsNormal) {
   const grouped = groupBySlot(responses);
   const bos = new Map();
   const lok = (bo, l, type) => {
@@ -27,16 +27,12 @@ export function buildTree(master, responses, date, now, emptyAsNormal = APP_CONF
         const slots = Array.from({ length: SLOT_COUNT }, (_, hour) => {
           const reports = grouped.get(`${date}|${m.tid}|${hour}`) || [];
           const due = date < now.date || (date === now.date && hour <= now.hour);
-          // Problem yang sudah di-TL tidak lagi dihitung; slot hijau hanya jika tidak ada problem tersisa. Laporan asli tetap tersimpan.
-          const open = reports.filter((r) => !(r.status === STATUS.PROBLEM && tlKeys.has(reportKey(r))));
-          const closed = reports.length - open.length;
-          let status = closed && !open.length ? STATUS.NORMAL : deriveSlotStatus(open); let inferred = false;
-          const resolved = closed > 0 && status === STATUS.NORMAL;
+          let status = deriveSlotStatus(reports); let inferred = false;
           if (status === STATUS.EMPTY && emptyAsNormal && due) { status = STATUS.NORMAL; inferred = true; }
-          return { hour, status, reports, due, inferred, resolved };
+          return { hour, status, reports, due, inferred };
         });
         const count = (s) => slots.filter((x) => x.status === s).length;
-        return { ...m, key: m.tid, slots, problem: count(STATUS.PROBLEM), normal: count(STATUS.NORMAL), verify: count(STATUS.VERIFY), empty: count(STATUS.EMPTY),
+        return { ...m, key: m.tid, slots, problem: count(STATUS.PROBLEM), tl: count(STATUS.TL), normal: count(STATUS.NORMAL), verify: count(STATUS.VERIFY), empty: count(STATUS.EMPTY),
           reportsToday: slots.reduce((n, x) => n + x.reports.length, 0) };
       }).sort((a, b) => a.type.localeCompare(b.type) || a.tid.localeCompare(b.tid, 'id', { numeric: true }));
       return { name: l.name, type: l.type, machines, problemMachines: machines.filter((m) => m.problem > 0).length };
