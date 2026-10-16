@@ -15,6 +15,12 @@ const CELL = {
   verifikasi: ['bg-[#FFE98A] text-[#8A5A00]', '!', 'Perlu verifikasi'], belum: ['bg-[#FFE98A] text-[#8A5A00]', '!', 'Belum diinput']
 };
 // Legenda: hanya 4 keterangan (urutan sesuai permintaan). "Perlu verifikasi" memakai warna krem yang sama dengan Belum diinput.
+// Kategori mesin pada KPI (per tanggal terpilih). Normal = ada slot normal dan tidak ada slot problem yang belum di-TL.
+const CATS = [
+  ['bermasalah', 'Mesin Problem', 'text-bad', (m) => m.problem > 0],
+  ['normal', 'Mesin Normal', 'text-ok', (m) => m.normal > 0 && m.problem === 0],
+  ['sudah_tl', 'Tindak Lanjut', 'text-tl', (m) => m.tl > 0]
+];
 const LEGEND = ['bermasalah', 'sudah_tl', 'normal', 'belum'];
 const Collapse = ({ open, children }) => (
   <AnimatePresence initial={false}>{open && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">{children}</motion.div>}</AnimatePresence>
@@ -44,6 +50,7 @@ export default function MonitoringDashboard({ data }) {
   const [date, setDate] = useState(now.date);
   const [bo, setBo] = useState(''); const [lokasi, setLokasi] = useState(''); const [q, setQ] = useState('');
   const [open, setOpen] = useState({}); const [slot, setSlot] = useState(null);
+  const [cat, setCat] = useState(null);
   const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   // Deep link dari Live Response: /monitoring?date=&bo=&lokasi=&tid=&hour= -> buka BO & lokasi terkait dan panel slot problem.
   const [sp, setSp] = useSearchParams();
@@ -72,6 +79,10 @@ export default function MonitoringDashboard({ data }) {
       ...b, lokasis: b.lokasis.filter((l) => (!lokasi || l.name === lokasi) && (!t || `${b.name} ${l.name} ${l.machines.map((m) => m.tid).join(' ')}`.toLowerCase().includes(t)))
     })).filter((b) => b.lokasis.length);
   }, [tree, bo, lokasi, q]);
+  const goMachine = (b, l, m, hour) => {
+    setOpen((o) => ({ ...o, [b]: true, [`${b}/${l}`]: true }));
+    if (hour !== undefined) setSlot({ tid: m.tid, hour, date, lokasi: l });
+  };
   const all = view.flatMap((b) => b.lokasis.flatMap((l) => l.machines));
 
   return (
@@ -86,11 +97,33 @@ export default function MonitoringDashboard({ data }) {
       <div className="mt-3 flex flex-wrap gap-3 text-xs"><span className="font-semibold text-navy">Keterangan</span>{LEGEND.map((k) => [k, CELL[k]]).map(([k, [cls, ico, name]]) => <span key={k} className="flex items-center gap-1.5"><span className={`grid h-5 w-5 place-items-center rounded font-bold ${cls}`}>{ico}</span>{name}</span>)}</div></Card>
 
       {loading ? <p className="text-mute">Memuat data…</p> : (<>
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Kpi label="Branch Office" value={view.length} /><Kpi label="Lokasi" value={view.reduce((n, b) => n + b.lokasis.length, 0)} />
-          <Kpi label="Mesin problem" value={all.filter((m) => m.problem > 0).length} hint={`dari ${all.length} mesin terdaftar`} tone="text-bad" />
-          <Kpi label="Slot problem" value={all.reduce((n, m) => n + m.problem, 0)} hint={`${all.reduce((n, m) => n + m.reportsToday, 0)} laporan • ${all.reduce((n, m) => n + m.tl, 0)} slot sudah TL`} />
+          {CATS.map(([k, label, tone, test]) => (
+            <button key={k} type="button" onClick={() => setCat(cat === k ? null : k)} aria-pressed={cat === k} title={`Klik untuk melihat daftar ${label.toLowerCase()}`}
+              className={`rounded-2xl text-left transition ${cat === k ? 'ring-2 ring-primary' : 'hover:ring-2 hover:ring-primary/40'}`}>
+              <Kpi label={label} value={all.filter(test).length} tone={tone} hint={`dari ${all.length} mesin • klik untuk detail`} />
+            </button>))}
         </div>
+        {cat && (() => {
+          const [, label, tone, test] = CATS.find((c) => c[0] === cat);
+          const rows = view.flatMap((b) => b.lokasis.flatMap((l) => l.machines.filter(test).map((m) => ({ b, l, m }))));
+          return (
+            <Card className="mb-4" title={`${label}: ${rows.length} mesin`} right={<button onClick={() => setCat(null)} className="text-xs text-mute underline">Tutup</button>}>
+              {rows.length === 0 ? <Empty>Tidak ada mesin pada kategori ini.</Empty> : (
+                <div className="max-h-[50vh] overflow-auto"><table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-white"><tr>{['Branch Office', 'Lokasi', 'Mesin', 'TID', 'Vendor', 'Jam'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-wider text-navy">{h}</th>)}</tr></thead>
+                  <tbody>{rows.map(({ b, l, m }) => {
+                    const hrs = m.slots.filter((x) => x.status === cat).map((x) => x.hour);
+                    return (
+                      <tr key={m.key} tabIndex={0} onClick={() => goMachine(b.name, l.name, m, hrs[0])} onKeyDown={(e) => e.key === 'Enter' && goMachine(b.name, l.name, m, hrs[0])} className="cursor-pointer border-t border-line/70 hover:bg-primary-light/50">
+                        <td className="px-3 py-2">{b.name}</td><td className="px-3 py-2">{l.name}</td><td className="px-3 py-2">{m.type || '—'}</td>
+                        <td className={`px-3 py-2 font-semibold ${tone}`}>{m.tid}</td><td className="px-3 py-2">{m.vendor || '—'}</td>
+                        <td className="px-3 py-2 text-xs">{hrs.map((h) => String(h).padStart(2, '0')).join(', ')}</td>
+                      </tr>);
+                  })}</tbody></table></div>)}
+            </Card>);
+        })()}
         {view.length === 0 && <Empty>Tidak ada BO/lokasi yang cocok dengan filter.</Empty>}
         <div className="space-y-3">{view.map((b) => (
           <section key={b.name} className="rounded-xl border border-white/70 bg-white/75 shadow-sm backdrop-blur">

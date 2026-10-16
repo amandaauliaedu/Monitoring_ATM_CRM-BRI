@@ -7,6 +7,7 @@ import { Card, ErrorBox, Empty, field } from '../components/ui.jsx';
 import { applyFilters, boOptions, lokasiOptions, EMPTY_FILTERS } from '../utils/filterUtils.js';
 import { exportLiveResponses, LIVE_COLUMNS } from '../services/exportService.js';
 import { STATUS } from '../utils/monitoringUtils.js';
+import { RESPONSE_COLUMNS as C } from '../config/columnMapping.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const pad = (n) => String(n).padStart(2, '0');
@@ -38,11 +39,23 @@ export default function LiveResponse({ live }) {
   const typeKey = (r) => String(r.ukerType ?? '').trim().toUpperCase();
   const FIXED = ['KK', 'KCP', 'UNIT'];
   const otherTypes = [...new Set(filtered.map(typeKey).filter((t) => t && !FIXED.includes(t)))].sort();
-  const Chip = ({ label, value }) => (
-    <div className="flex items-baseline gap-2 rounded-lg border border-white/70 bg-white/80 px-3 py-1.5 shadow-sm">
+  const [kp, setKp] = useState(null);
+  const chip = (id, label, value) => (
+    <button key={id} type="button" onClick={() => setKp(kp === id ? null : id)} aria-pressed={kp === id} title="Klik untuk melihat detail"
+      className={`flex items-baseline gap-2 rounded-lg border bg-white/80 px-3 py-1.5 shadow-sm transition hover:ring-2 hover:ring-primary/40 ${kp === id ? 'border-primary ring-2 ring-primary' : 'border-white/70'}`}>
       <span className="font-mono text-[10px] uppercase tracking-wider text-mute">{label}</span><span className="text-lg font-bold leading-none text-navy">{value}</span>
-    </div>);
-  const typeKpi = (t, label = t) => <Chip key={t} label={`Total ${label}`} value={uk((r) => typeKey(r) === t)} />;
+    </button>);
+  const typeKpi = (t, label = t) => chip(t, `Total ${label}`, uk((r) => typeKey(r) === t));
+  const group = (keyFn, pick) => { const m = new Map(); for (const r of filtered) { const k = keyFn(r); if (!m.has(k)) m.set(k, { r, n: 0, prob: 0, ...pick(r) }); const x = m.get(k); x.n++; if (r.status === STATUS.PROBLEM) x.prob++; } return [...m.values()]; };
+  const ukerRows = group((r) => `${r.bo}|${r.lokasi}`, () => ({}));
+  const detail = (() => {
+    if (!kp) return null;
+    const uk2 = (rows) => ({ cols: ['Branch Office', 'Lokasi', 'Jenis Uker', 'Laporan', 'Problem'], rows: rows.map((x) => [x.r.bo, x.r.lokasi, x.r.ukerType || '—', x.n, x.prob]) });
+    if (kp === 'resp') return { title: 'Total Response', cols: ['Tanggal', 'Jam', 'Branch Office', 'Lokasi', 'Mesin', 'TID', 'Status'], rows: filtered.map((r) => [r.date, r.raw[C.time] ?? '', r.bo, r.lokasi, r.machineType, r.tid, r.raw[C.status] ?? '']) };
+    if (kp === 'uker') return { title: 'Total Uker', ...uk2(ukerRows) };
+    if (kp === 'bo') return { title: 'Total BO', cols: ['Branch Office', 'Jumlah Uker', 'Laporan', 'Problem'], rows: group((r) => r.bo, () => ({})).map((x) => [x.r.bo, ukerRows.filter((u) => u.r.bo === x.r.bo).length, x.n, x.prob]) };
+    return { title: `Total ${kp === 'UNIT' ? 'Unit' : kp}`, ...uk2(ukerRows.filter((x) => typeKey(x.r) === kp)) };
+  })();
   // Problem yang belum di-TL -> kolom TL merah, klik membuka Monitoring Dashboard pada slot problem tsb.
   const needTL = (r) => r.status === STATUS.PROBLEM && !r.tlDone;
   const goDashboard = (r) => navigate(`/monitoring?${new URLSearchParams({ date: r.date, bo: r.bo, lokasi: r.lokasi, tid: r.tid, hour: String(r.hour) })}`);
@@ -69,9 +82,17 @@ export default function LiveResponse({ live }) {
       <p className="mb-4 mt-1 text-sm text-mute">Data monitoring ATM &amp; CRM langsung dari Google Sheets • {rowsRead ?? data.length} baris terbaca dari sheet{skipped ? ` • ${skipped} baris dilewati (tanggal/jam/TID tidak valid)` : ''}.</p>
       <ErrorBox error={error} onRetry={refresh} />
       <div className="mb-4 flex flex-wrap gap-2">
-        <Chip label="Total Response" value={filtered.length} /><Chip label="Total Uker" value={uk(() => true)} /><Chip label="Total BO" value={new Set(filtered.map((r) => r.bo)).size} />
+        {chip('resp', 'Total Response', filtered.length)}{chip('uker', 'Total Uker', uk(() => true))}{chip('bo', 'Total BO', new Set(filtered.map((r) => r.bo)).size)}
         {typeKpi('KCP')}{typeKpi('KK')}{otherTypes.map((t) => typeKpi(t))}{typeKpi('UNIT', 'Unit')}
       </div>
+      {detail && (
+        <Card className="mb-4" title={`${detail.title}: ${detail.rows.length}`} right={<button onClick={() => setKp(null)} className="text-xs text-mute underline">Tutup</button>}>
+          {detail.rows.length === 0 ? <Empty>Tidak ada data.</Empty> : (
+            <div className="max-h-[40vh] overflow-auto"><table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white"><tr>{detail.cols.map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+              <tbody>{detail.rows.map((row, i) => <tr key={i} className="border-t border-line/70">{row.map((v, j) => <td key={j} className="whitespace-nowrap px-3 py-1.5">{v === '' ? '—' : v}</td>)}</tr>)}</tbody>
+            </table></div>)}
+        </Card>)}
       <Card className="mb-4"><div className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="font-semibold text-navy">Download Excel</p><p className="text-sm text-mute">Unduh {filtered.length} baris sesuai filter &amp; pencarian saat ini dalam format .xlsx</p></div>
         <button onClick={download} disabled={!filtered.length} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow hover:bg-primary-hover disabled:opacity-50"><Download size={14} />Unduh Excel</button>
