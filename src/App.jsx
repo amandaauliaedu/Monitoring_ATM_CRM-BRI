@@ -25,6 +25,7 @@ export default function App() {
           <Route path="*" element={<Home data={data} onDownload={download} />} />
         </Routes>
       </AnimatePresence>
+      <footer className="mx-auto max-w-6xl px-4 pb-6 pt-2 text-center text-xs text-mute">© 2026 Amanda Aulia | PT. Bank Rakyat Indonesia (Persero) Tbk</footer>
     </>
   );
 }
