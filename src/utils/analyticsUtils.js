@@ -1,4 +1,4 @@
-import { machineKey, STATUS } from './monitoringUtils.js';
+import { machineKey, STATUS, reportOrder } from './monitoringUtils.js';
 import { SLOTS } from './dateUtils.js';
 
 const base = (p) => p.replace(/\s*\(.*\)\s*$/, '').trim();
@@ -23,4 +23,28 @@ export function analyze(rows) {
     byMachine: countBy(prob, (r) => `${r.machineType} ${r.tid} · ${r.lokasi}`),
     byProblem: countBy(prob, (r) => r.problems.map(base))
   };
+}
+
+// Mesin bermasalah per vendor (mesin unik = TID unik dengan laporan Problem pada data terfilter).
+export const VENDORS = ['BG Surabaya', 'BG Pamekasan', 'Advantage', 'SSI Bojonegoro'];
+const vkey = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+export function byVendor(rows) {
+  const prob = rows.filter((r) => r.status === STATUS.PROBLEM);
+  const names = [...VENDORS];
+  for (const r of prob) { const v = String(r.vendor ?? '').trim().replace(/\s+/g, ' '); if (v && !names.some((n) => vkey(n) === vkey(v))) names.push(v); }
+  return names.map((name) => {
+    const mine = prob.filter((r) => vkey(r.vendor) === vkey(name));
+    // Satu entri per TID; target = laporan problem terakhir yang belum di-TL (jika tidak ada, laporan problem terakhir) untuk tautan ke Monitoring Dashboard.
+    const group = (pred) => {
+      const m = new Map();
+      for (const r of mine.filter(pred)) { const k = machineKey(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
+      return [...m].map(([tid, list]) => {
+        list.sort(reportOrder);
+        const target = [...list].reverse().find((r) => !r.tlDone) || list[list.length - 1];
+        return { tid, type: target.machineType, bo: target.bo, lokasi: target.lokasi, count: list.length, target };
+      }).sort((a, b) => a.tid.localeCompare(b.tid, 'id', { numeric: true }));
+    };
+    const items = { CRM: group((r) => r.machineType === 'CRM'), ATM: group((r) => r.machineType === 'ATM'), ALL: group(() => true) };
+    return { name, crm: items.CRM.length, atm: items.ATM.length, total: items.ALL.length, items };
+  });
 }

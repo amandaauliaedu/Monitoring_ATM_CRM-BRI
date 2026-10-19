@@ -33,3 +33,26 @@ describe('status & slot', () => {
   });
   it('slot masa depan tidak jatuh tempo', () => { expect(slotStats(r, '2026-10-13', new Map(), { date: '2026-10-13', hour: 9 }).due).toBe(10); });
 });
+
+import { reportsByTid, unresolvedSince, minutesSince, formatDuration } from './monitoringUtils.js';
+import { byVendor } from './analyticsUtils.js';
+describe('durasi belum TL', () => {
+  const P = (date, hour, o = {}) => ({ tid: '12345', date, hour, timestamp: `${date} ${hour}`, status: STATUS.PROBLEM, tlDone: false, ...o });
+  it('jam yang terlewat tidak memutus; hitung dari laporan pertama', () => {
+    const s = unresolvedSince(reportsByTid([P('2026-10-19', 2), P('2026-10-19', 3), P('2026-10-19', 4), P('2026-10-19', 6)]).get('12345'));
+    expect(minutesSince(s, { date: '2026-10-19', hour: 7, minute: 0 })).toBe(300);
+  });
+  it('lintas hari', () => { expect(formatDuration(minutesSince(P('2026-10-14', 8), { date: '2026-10-15', hour: 9, minute: 0 }))).toBe('1 hari 1 jam');
+    expect(formatDuration(minutesSince({ date: '2026-10-19', hour: 7, minute: 15 }, { date: '2026-10-19', hour: 8, minute: 28 }))).toBe('1 jam 13 menit'); });
+  it('TL atau Normal memutus rangkaian', () => {
+    expect(unresolvedSince([P('2026-10-19', 2), P('2026-10-19', 3, { tlDone: true })])).toBeNull();
+    expect(unresolvedSince([P('2026-10-19', 2), P('2026-10-19', 3, { status: STATUS.NORMAL }), P('2026-10-19', 5)]).hour).toBe(5);
+  });
+});
+describe('vendor', () => {
+  it('mesin unik per vendor', () => {
+    const v = byVendor([{ status: 'bermasalah', vendor: 'BG Surabaya', machineType: 'CRM', tid: '1' }, { status: 'bermasalah', vendor: 'BG Surabaya', machineType: 'CRM', tid: '1' }, { status: 'bermasalah', vendor: 'BG Surabaya', machineType: 'ATM', tid: '2' }]);
+    expect(v[0]).toMatchObject({ name: 'BG Surabaya', crm: 1, atm: 1, total: 2 });
+    expect(v[0].items.CRM[0].tid).toBe('1');
+  });
+});

@@ -9,6 +9,7 @@ import { buildTree } from '../utils/treeUtils.js';
 import { submitFollowUp } from '../services/googleSheetsService.js';
 import { APP_CONFIG, WRITE_URL_OK } from '../config/appConfig.js';
 import { nowInJakarta, SLOTS } from '../utils/dateUtils.js';
+import { reportsByTid, unresolvedSince, minutesSince, formatDuration, clock } from '../utils/monitoringUtils.js';
 
 const CELL = {
   bermasalah: ['bg-bad text-white', '✕', 'Problem'], sudah_tl: ['bg-tl text-white', '✓', 'Tindak Lanjut'], normal: ['bg-ok text-white', '✓', 'Normal'],
@@ -51,6 +52,7 @@ export default function MonitoringDashboard({ data }) {
   const [bo, setBo] = useState(''); const [lokasi, setLokasi] = useState(''); const [q, setQ] = useState('');
   const [open, setOpen] = useState({}); const [slot, setSlot] = useState(null);
   const [cat, setCat] = useState(null);
+  const byTid = useMemo(() => reportsByTid(responses), [responses]);
   const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   // Deep link dari Live Response: /monitoring?date=&bo=&lokasi=&tid=&hour= -> buka BO & lokasi terkait dan panel slot problem.
   const [sp, setSp] = useSearchParams();
@@ -107,19 +109,25 @@ export default function MonitoringDashboard({ data }) {
         </div>
         {cat && (() => {
           const [, label, tone, test] = CATS.find((c) => c[0] === cat);
-          const rows = view.flatMap((b) => b.lokasis.flatMap((l) => l.machines.filter(test).map((m) => ({ b, l, m }))));
+          const showDur = cat === 'bermasalah';
+          // Durasi belum di-TL: dari laporan Problem pertama yang belum di-TL (lintas tanggal) sampai jam sekarang.
+          const rows = view.flatMap((b) => b.lokasis.flatMap((l) => l.machines.filter(test).map((m) => {
+            const st = showDur ? unresolvedSince(byTid.get(m.tid)) : null;
+            return { b, l, m, st, dur: st ? minutesSince(st, now) : null };
+          }))).sort((x, y) => (showDur ? (y.dur ?? -1) - (x.dur ?? -1) : 0));
           return (
             <Card className="mb-4" title={`${label}: ${rows.length} mesin`} right={<button onClick={() => setCat(null)} className="text-xs text-mute underline">Tutup</button>}>
               {rows.length === 0 ? <Empty>Tidak ada mesin pada kategori ini.</Empty> : (
                 <div className="max-h-[50vh] overflow-auto"><table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-white"><tr>{['Branch Office', 'Lokasi', 'Mesin', 'TID', 'Vendor', 'Jam'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-wider text-navy">{h}</th>)}</tr></thead>
-                  <tbody>{rows.map(({ b, l, m }) => {
+                  <thead className="sticky top-0 bg-white"><tr>{['Branch Office', 'Lokasi', 'Mesin', 'TID', 'Vendor', 'Jam', ...(showDur ? ['Durasi Belum TL'] : [])].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-wider text-navy">{h}</th>)}</tr></thead>
+                  <tbody>{rows.map(({ b, l, m, st, dur }) => {
                     const hrs = m.slots.filter((x) => x.status === cat).map((x) => x.hour);
                     return (
                       <tr key={m.key} tabIndex={0} onClick={() => goMachine(b.name, l.name, m, hrs[0])} onKeyDown={(e) => e.key === 'Enter' && goMachine(b.name, l.name, m, hrs[0])} className="cursor-pointer border-t border-line/70 hover:bg-primary-light/50">
                         <td className="px-3 py-2">{b.name}</td><td className="px-3 py-2">{l.name}</td><td className="px-3 py-2">{m.type || '—'}</td>
                         <td className={`px-3 py-2 font-semibold ${tone}`}>{m.tid}</td><td className="px-3 py-2">{m.vendor || '—'}</td>
                         <td className="px-3 py-2 text-xs">{hrs.map((h) => String(h).padStart(2, '0')).join(', ')}</td>
+                        {showDur && <td className="whitespace-nowrap px-3 py-2">{st ? (<><span className="font-bold text-bad">{formatDuration(dur)}</span><span className="block text-[11px] text-mute">sejak {st.date} {clock(st)}</span></>) : <span className="text-xs text-mute">Sudah normal</span>}</td>}
                       </tr>);
                   })}</tbody></table></div>)}
             </Card>);

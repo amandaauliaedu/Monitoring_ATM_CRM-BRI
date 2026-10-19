@@ -25,11 +25,12 @@ export function normalizeResponse(row, i = 0) {
   const date = normalizeDate(row[C.date]); const hour = parseHour(row[C.time]);
   const tid = String(row[C.tid] ?? '').trim();
   if (!date || hour === null || !tid) return null;
+  const minute = Number((/^\s*\d{1,2}[:.](\d{2})/.exec(String(row[C.time] ?? '')) || [])[1] ?? 0);
   const problems = splitProblems(row[C.problems]);
   const st = String(row[C.status] ?? '').trim().toLowerCase();
   const status = st.startsWith('normal') ? STATUS.NORMAL : st.startsWith('problem') ? STATUS.PROBLEM : problems.length ? STATUS.PROBLEM : STATUS.VERIFY;
   return {
-    id: `r${i}`, raw: row, timestamp: row[C.timestamp] || '', date, hour, reporter: row[C.reporter] || '',
+    id: `r${i}`, raw: row, timestamp: row[C.timestamp] || '', date, hour, minute, reporter: row[C.reporter] || '',
     bo: String(row[C.branch] ?? '').trim(), lokasi: String(row[C.location] ?? '').trim(), ukerType: String(row[C.ukerType] ?? '').trim(),
     machineType: String(row[C.machineType] || '').trim().toUpperCase(), tid, vendor: row[C.vendor] || '',
     problems, detail: row[C.detail] || '', photo: row[C.photo] || '', status,
@@ -62,3 +63,35 @@ export function slotStats(machine, date, grouped, now = nowInJakarta()) {
   }
   return { counts, filled, due, dailyCompleteness: filled / SLOT_COUNT, coverageToNow: due ? dueFilled / due : 0 };
 }
+
+// ---- Durasi mesin problem yang belum di-TL ----
+export const reportOrder = (a, b) => a.date.localeCompare(b.date) || a.hour - b.hour || (a.minute ?? 0) - (b.minute ?? 0) || String(a.timestamp).localeCompare(String(b.timestamp));
+// Kelompokkan semua laporan per TID (urut waktu naik) untuk menghitung durasi lintas tanggal.
+export function reportsByTid(reports) {
+  const m = new Map();
+  for (const r of reports) { const k = machineKey(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
+  for (const list of m.values()) list.sort(reportOrder);
+  return m;
+}
+// Laporan Problem pertama dari rangkaian problem yang masih berjalan (belum di-TL).
+// Jam laporan yang terlewat tidak memutus rangkaian; rangkaian berhenti hanya jika ada laporan Normal atau laporan yang sudah di-TL.
+export function unresolvedSince(list) {
+  let start = null;
+  for (const r of list || []) {
+    if (r.status === STATUS.PROBLEM && !r.tlDone) { if (!start) start = r; }
+    else if (r.status === STATUS.NORMAL || (r.status === STATUS.PROBLEM && r.tlDone)) start = null;
+  }
+  return start;
+}
+// Selisih menit dari waktu kirim laporan pertama (Tanggal + Jam pada form, lengkap dengan menit) sampai sekarang (Asia/Jakarta); bisa lintas hari.
+export function minutesSince(start, now = nowInJakarta()) {
+  const t = (d, h, mi) => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd, h, mi) / 60000; };
+  return Math.max(0, Math.round(t(now.date, now.hour, now.minute ?? 0) - t(start.date, start.hour, start.minute ?? 0)));
+}
+// Contoh: 73 menit -> "1 jam 13 menit"; 1500 menit -> "1 hari 1 jam"
+export function formatDuration(min) {
+  if (min < 1) return '< 1 menit';
+  const d = Math.floor(min / 1440); const j = Math.floor((min % 1440) / 60); const n = min % 60;
+  return [d && `${d} hari`, j && `${j} jam`, n && `${n} menit`].filter(Boolean).join(' ');
+}
+export const clock = (r) => `${String(r.hour).padStart(2, '0')}.${String(r.minute ?? 0).padStart(2, '0')}`;
