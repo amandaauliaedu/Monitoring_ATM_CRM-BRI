@@ -15,8 +15,8 @@ export default function Home({ data, onDownload }) {
       <section className="grid min-h-[62vh] items-center gap-8 py-10 md:grid-cols-2">
         <div>
           <p className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-primary"><Copyright size={12} />Operation, Service, and E-Channel (OSE)</p>
-          <h1 className="mt-5 text-5xl font-bold leading-[1.05] tracking-tight text-navy sm:text-6xl">BRI REGION 12<br /><span className="inline-block border-b-2 border-primary pb-2 text-primary">SURABAYA</span></h1>
-          <p className="mt-5 max-w-md text-mute">Monitoring Kondisi Mesin ATM &amp; CRM Onsite Tiap Branch Office dan Unit Kerja selama 24 jam.</p>
+          <h1 className="mt-5 text-5xl font-bold leading-[1.05] tracking-tight text-navy sm:text-6xl">MONITORING<br /><span className="inline-block border-b-2 border-primary pb-2 text-primary">ATM &amp; CRM</span></h1>
+          <p className="mt-5 max-w-md text-lg font-semibold text-navy">BRI Region 12 Surabaya</p>
           <div className="mt-6 flex flex-wrap gap-2">
             <Link to="/live-response" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-primary-hover">Lihat Live Response <ArrowUpRight size={14} /></Link>
             <button onClick={onDownload} className="flex items-center gap-2 rounded-lg border border-line bg-white/90 px-4 py-2.5 text-sm hover:bg-primary-light"><Download size={14} />Unduh Data Excel</button>

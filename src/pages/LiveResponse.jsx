@@ -38,7 +38,7 @@ export default function LiveResponse({ live }) {
   const uk = (pred) => new Set(filtered.filter(pred).map((r) => `${r.bo}|${r.lokasi}`)).size;
   const typeKey = (r) => String(r.ukerType ?? '').trim().toUpperCase();
   const FIXED = ['KK', 'KCP', 'UNIT'];
-  const otherTypes = [...new Set(filtered.map(typeKey).filter((t) => t && !FIXED.includes(t)))].sort();
+  const otherTypes = [...new Set(filtered.map(typeKey).filter((t) => t && !FIXED.includes(t) && !/OFFS(IT|ID)E/.test(t)))].sort(); // jenis ATM Offsite tidak ditampilkan sebagai kotak
   const [kp, setKp] = useState(null);
   const chip = (id, label, value) => (
     <button key={id} type="button" onClick={() => setKp(kp === id ? null : id)} aria-pressed={kp === id} title="Klik untuk melihat detail"

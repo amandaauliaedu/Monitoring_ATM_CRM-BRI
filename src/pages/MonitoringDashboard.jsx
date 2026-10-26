@@ -9,6 +9,7 @@ import { buildTree } from '../utils/treeUtils.js';
 import { submitFollowUp } from '../services/googleSheetsService.js';
 import { APP_CONFIG, WRITE_URL_OK } from '../config/appConfig.js';
 import { nowInJakarta, SLOTS } from '../utils/dateUtils.js';
+import { VENDORS } from '../utils/analyticsUtils.js';
 import { reportsByTid, unresolvedSince, minutesSince, formatDuration, clock } from '../utils/monitoringUtils.js';
 
 const CELL = {
@@ -52,6 +53,7 @@ export default function MonitoringDashboard({ data }) {
   const [bo, setBo] = useState(''); const [lokasi, setLokasi] = useState(''); const [q, setQ] = useState('');
   const [open, setOpen] = useState({}); const [slot, setSlot] = useState(null);
   const [cat, setCat] = useState(null);
+  const [vsel, setVsel] = useState(null); // { name, kind: 'CRM' | 'ATM' | 'ALL' } untuk kategori Problem / Tindak Lanjut
   const byTid = useMemo(() => reportsByTid(responses), [responses]);
   const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   // Deep link dari Live Response: /monitoring?date=&bo=&lokasi=&tid=&hour= -> buka BO & lokasi terkait dan panel slot problem.
@@ -102,7 +104,7 @@ export default function MonitoringDashboard({ data }) {
         <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Kpi label="Branch Office" value={view.length} /><Kpi label="Lokasi" value={view.reduce((n, b) => n + b.lokasis.length, 0)} />
           {CATS.map(([k, label, tone, test]) => (
-            <button key={k} type="button" onClick={() => setCat(cat === k ? null : k)} aria-pressed={cat === k} title={`Klik untuk melihat daftar ${label.toLowerCase()}`}
+            <button key={k} type="button" onClick={() => { setCat(cat === k ? null : k); setVsel(null); }} aria-pressed={cat === k} title={`Klik untuk melihat daftar ${label.toLowerCase()}`}
               className={`rounded-2xl text-left transition ${cat === k ? 'ring-2 ring-primary' : 'hover:ring-2 hover:ring-primary/40'}`}>
               <Kpi label={label} value={all.filter(test).length} tone={tone} hint={`dari ${all.length} mesin • klik untuk detail`} />
             </button>))}
@@ -110,13 +112,43 @@ export default function MonitoringDashboard({ data }) {
         {cat && (() => {
           const [, label, tone, test] = CATS.find((c) => c[0] === cat);
           const showDur = cat === 'bermasalah';
+          // Problem & Tindak Lanjut: tampilkan rekap per vendor dulu; daftar mesin muncul setelah angka vendor diklik.
+          const isV = cat !== 'normal';
+          const vk = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+          const word = cat === 'bermasalah' ? 'Bermasalah' : 'Tindak Lanjut';
+          const base = view.flatMap((b) => b.lokasis.flatMap((l) => l.machines.filter(test)));
+          const vNames = [...VENDORS];
+          for (const m of base) { const v = String(m.vendor ?? '').trim().replace(/\s+/g, ' ') || 'Tanpa Vendor'; if (!vNames.some((n) => vk(n) === vk(v))) vNames.push(v); }
+          const vOf = (m) => (String(m.vendor ?? '').trim() ? m.vendor : 'Tanpa Vendor');
+          const vMatch = (m, s) => vk(vOf(m)) === vk(s.name) && (s.kind === 'ALL' || m.type === s.kind);
+          const vCards = vNames.map((name) => ({ name, crm: base.filter((m) => vMatch(m, { name, kind: 'CRM' })).length, atm: base.filter((m) => vMatch(m, { name, kind: 'ATM' })).length, total: base.filter((m) => vMatch(m, { name, kind: 'ALL' })).length }));
+          const showTable = !isV || !!vsel;
           // Durasi belum di-TL: dari laporan Problem pertama yang belum di-TL (lintas tanggal) sampai jam sekarang.
-          const rows = view.flatMap((b) => b.lokasis.flatMap((l) => l.machines.filter(test).map((m) => {
+          const rows = view.flatMap((b) => b.lokasis.flatMap((l) => l.machines.filter((m) => test(m) && (!isV || !vsel || vMatch(m, vsel))).map((m) => {
             const st = showDur ? unresolvedSince(byTid.get(m.tid)) : null;
             return { b, l, m, st, dur: st ? minutesSince(st, now) : null };
           }))).sort((x, y) => (showDur ? (y.dur ?? -1) - (x.dur ?? -1) : 0));
-          return (
-            <Card className="mb-4" title={`${label}: ${rows.length} mesin`} right={<button onClick={() => setCat(null)} className="text-xs text-mute underline">Tutup</button>}>
+          return (<>
+            {isV && (
+              <Card className="mb-4" title={cat === 'bermasalah' ? 'Mesin Bermasalah per Vendor' : 'Mesin Tindak Lanjut per Vendor'} right={<button onClick={() => { setCat(null); setVsel(null); }} className="text-xs text-mute underline">Tutup</button>}>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {vCards.map((v) => (
+                    <div key={v.name} className="rounded-xl border border-line bg-white p-3">
+                      <p className="mb-2 font-semibold text-navy">{v.name}</p>
+                      <dl className="space-y-1 text-sm">
+                        {[['CRM', `CRM ${word}`, v.crm, ''], ['ATM', `ATM ${word}`, v.atm, ''], ['ALL', `Total Mesin ${word}`, v.total, 'border-t border-line pt-1 font-medium']].map(([kind, lbl, n, extra]) => {
+                          const on = vsel?.name === v.name && vsel?.kind === kind;
+                          return (
+                            <button key={kind} type="button" disabled={!n} onClick={() => setVsel(on ? null : { name: v.name, kind })} aria-pressed={on} title={n ? 'Klik untuk melihat mesin' : ''}
+                              className={`flex w-full justify-between rounded px-1 text-left enabled:hover:bg-primary-light/60 ${extra} ${on ? 'bg-primary-light' : ''}`}>
+                              <span className={extra ? '' : 'text-mute'}>{lbl}</span><span className={`font-bold ${kind === 'ALL' ? (n ? tone : 'text-ok') : ''}`}>{n}</span>
+                            </button>);
+                        })}
+                      </dl>
+                    </div>))}
+                </div>
+              </Card>)}
+            {showTable && <Card className="mb-4" title={vsel ? `${vsel.name} • ${vsel.kind === 'ALL' ? 'Semua mesin' : vsel.kind} ${word.toLowerCase()}: ${rows.length} mesin` : `${label}: ${rows.length} mesin`} right={<button onClick={() => (isV ? setVsel(null) : setCat(null))} className="text-xs text-mute underline">Tutup</button>}>
               {rows.length === 0 ? <Empty>Tidak ada mesin pada kategori ini.</Empty> : (
                 <div className="max-h-[50vh] overflow-auto"><table className="w-full text-sm">
                   <thead className="sticky top-0 bg-white"><tr>{['Branch Office', 'Lokasi', 'Mesin', 'TID', 'Vendor', 'Jam', ...(showDur ? ['Durasi Belum TL'] : [])].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-wider text-navy">{h}</th>)}</tr></thead>
@@ -130,7 +162,8 @@ export default function MonitoringDashboard({ data }) {
                         {showDur && <td className="whitespace-nowrap px-3 py-2">{st ? (<><span className="font-bold text-bad">{formatDuration(dur)}</span><span className="block text-[11px] text-mute">sejak {st.date} {clock(st)}</span></>) : <span className="text-xs text-mute">Sudah normal</span>}</td>}
                       </tr>);
                   })}</tbody></table></div>)}
-            </Card>);
+            </Card>}
+          </>);
         })()}
         {view.length === 0 && <Empty>Tidak ada BO/lokasi yang cocok dengan filter.</Empty>}
         <div className="space-y-3">{view.map((b) => (
